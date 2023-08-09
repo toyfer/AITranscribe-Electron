@@ -23,7 +23,7 @@ jobs:
         run: npm install
 
       - name: Build Electron project for Windows
-        run: npm run build-win
+        run: npm run build_win
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v2
