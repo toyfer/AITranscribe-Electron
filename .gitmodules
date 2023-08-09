@@ -1,0 +1,3 @@
+[submodule "submodule-name"]
+    path = submodule
+    url = https://github.com/openai/whisper
