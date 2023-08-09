@@ -22,6 +22,12 @@ jobs:
       - name: Build Electron project for Windows
         run: npm run build_win
 
+      #- name: FFmpeg Download
+      #  run: 
+
+      #- name: Whisper Download
+      #  run:
+
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
