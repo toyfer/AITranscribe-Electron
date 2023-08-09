@@ -1,3 +1,4 @@
+![example workflow](https://github.com/toyfer/AITranscribe-Electron/blob/main/.github/workflows/build.yml/badge.svg)
 # AITranscribe
 
 ## 概要
