@@ -1,0 +1,37 @@
+{
+  "name": "AiTranscribe",
+  "version": "0.1.0",
+  "description": "AIで文字起こしを行うためのソフトウェアです",
+  "main": "./src/main.js",
+  "scripts": {
+    "start": "chcp 65001 && electron .",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build_win": "electron-builder --win --x64"
+  },
+  "build": {
+    "appId": "enon",
+    "directories": {
+      "output": "build"
+    },
+    "files": [
+      "src",
+      "package.json",
+      "package-lock.json"
+    ],
+    "win": {
+      "icon": "",
+      "target": "zip",
+      "asar": "false"
+    }
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@electron/asar": "^3.2.4",
+    "electron": "^25.0.0",
+    "electron-builder": "^24.4.0"
+  },
+  "dependencies": {
+    "iconv-lite": "^0.6.3"
+  }
+}
