@@ -24,11 +24,11 @@ jobs:
 
       - name: FFmpeg Download
         shell: pwsh
-        run: wget https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -outfile FFmpeg.zip 
+        run: curl -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -Outfile FFmpeg.zip 
 
       - name: Python Embeddable Download
         shell: pwsh
-        run: wget https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -outfile Python.zip
+        run: curl -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
 
       - name: Setup dependencies
         shell: pwsh
