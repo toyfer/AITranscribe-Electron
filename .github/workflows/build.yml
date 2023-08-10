@@ -29,13 +29,12 @@ jobs:
         shell: pwsh
         run: |
           Expand-Archive .\FFmpeg.zip .\
-          dir -Recurse -Force
           Copy-Item -path .\ffmpeg-master-latest-win64-lgpl\bin\ffmpeg.exe .\src\FFmpeg\
           Expand-Archive .\Python.zip -DestinationPath .\src\AITranscribe
           (Get-Content .\src\AITranscribe\Python311._pth) -replace '#import site', 'import site' | Set-Content .\src\AITranscribe\Python311._pth
           Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -Outfile .\src\AITranscribe\get-pip.py
-          Start-Process .\src\AITranscribe\Python.exe -ArgmentList "get-pip.py"
-          Start-Process .\src\AITranscribe\Python.exe -ArgmentList "-m pip install git+https://github.com/openai/whisper.git"
+          Start-Process .\src\AITranscribe\Python.exe -Args "get-pip.py"
+          Start-Process .\src\AITranscribe\Python.exe -Args "-m pip install git+https://github.com/openai/whisper.git"
           
       - name: Build Electron project for Windows
         run: npm run build_win
