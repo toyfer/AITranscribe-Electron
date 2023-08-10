@@ -1,4 +1,4 @@
-![example workflow](https://github.com/toyfer/AITranscribe-Electron/blob/main/.github/workflows/build.yml/badge.svg)
+[![Build Electron Project for Windows](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/build.yml/badge.svg)](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/build.yml)
 # AITranscribe
 
 ## 概要
