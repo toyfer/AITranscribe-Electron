@@ -16,11 +16,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies
+      - name: Install Node.js dependencies
         run: npm install
-
-      - name: Build Electron project for Windows
-        run: npm run build_win
 
       - name: FFmpeg Download
         run: Invoke-WebRequest -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -Outfile FFmpeg.zip 
@@ -33,12 +30,15 @@ jobs:
         run: |
           Expand-Archive .\FFmpeg.zip .\
           dir -Recurse -Force
-          Copy-Item -path .\ffmpeg-master-latest-win64-lgpl\bin\ffmpeg.exe .\build\win-unpacked\resources\app\src\FFmpeg\
-          Expand-Archive .\Python.zip -DestinationPath .\build\win-unpacked\resources\app\src\AITranscribe
-          (Get-Content .\build\win-unpacked\resources\app\src\AITranscribe\Python311._pth) -replace '#import site', 'import site' | Set-Content .build\win-unpacked\resources\app\src\AITranscribe\Python311._pth
+          Copy-Item -path .\ffmpeg-master-latest-win64-lgpl\bin\ffmpeg.exe .\src\FFmpeg\
+          Expand-Archive .\Python.zip -DestinationPath .\src\AITranscribe
+          (Get-Content .\src\AITranscribe\Python311._pth) -replace '#import site', 'import site' | Set-Content .\src\AITranscribe\Python311._pth
           Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -Outfile .\build\win-unpacked\resources\app\src\AITranscribe\get-pip.py
-          Start-Process .\build\win-unpacked\resources\app\src\AITranscribe\Python.exe -ArgmentList "get-pip.py"
-          Start-Process .\build\win-unpacked\resources\app\src\AITranscribe\Python.exe -ArgmentList "-m pip install git+https://github.com/openai/whisper.git"
+          Start-Process .\src\AITranscribe\Python.exe -ArgmentList "get-pip.py"
+          Start-Process .\src\AITranscribe\Python.exe -ArgmentList "-m pip install git+https://github.com/openai/whisper.git"
+          
+      - name: Build Electron project for Windows
+        run: npm run build_win
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
