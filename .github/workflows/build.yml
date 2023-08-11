@@ -27,7 +27,6 @@ jobs:
         run: Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
 
       - name: Setup dependencies(FFmpeg&Python Embeddable)
-        shell: pwsh
         run: |
           Expand-Archive .\FFmpeg.zip .\
           Copy-Item -path .\ffmpeg-master-latest-win64-lgpl\bin\ffmpeg.exe .\src\FFmpeg\
@@ -36,10 +35,9 @@ jobs:
           Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -Outfile .\src\AITranscribe\get-pip.py
 
       - name: Setup pip
-        shell: cmd
         run: |
           Start-Process -FilePath .\src\AITranscribe\Python.exe -ArgumentList "get-pip.py"
-          Start-Process .\src\AITranscribe\Python.exe -ArgumentList "-m pip install git+https://github.com/openai/whisper.git "
+          Start-Process -FilePath .\src\AITranscribe\Python.exe -ArgumentList "-m pip install git+https://github.com/openai/whisper.git "
 
       - name: Build Electron project for Windows
         run: npm run build_win
