@@ -26,16 +26,13 @@ jobs:
       - name: Python Embeddable Download
         run: Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
 
-      - name: Setup dependencies(FFmpeg&Python Embeddable)
+      - name: Setup dependencies
         run: |
           Expand-Archive .\FFmpeg.zip .\
           Copy-Item -path .\ffmpeg-master-latest-win64-lgpl\bin\ffmpeg.exe .\src\FFmpeg\
           Expand-Archive .\Python.zip -DestinationPath .\src\AITranscribe
           (Get-Content .\src\AITranscribe\Python311._pth) -replace '#import site', 'import site' | Set-Content .\src\AITranscribe\Python311._pth
           Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -Outfile .\src\AITranscribe\get-pip.py
-
-      - name: Setup pip
-        run: |
           .\src\AITranscribe\Python.exe get-pip.py
           .\src\AITranscribe\Python.exe -m pip install git+https://github.com/openai/whisper.git
 
