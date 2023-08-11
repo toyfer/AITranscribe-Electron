@@ -43,5 +43,5 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: AITranscribe-Electron
-          #Path: build/*.zip
-          path: build/win-unpacked/
+          path: build/*.zip
+          #path: build/win-unpacked/
