@@ -22,12 +22,12 @@ model = whisper.load_model(f"{models_path}")
 
 # 推論を開始します
 result = model.transcribe(
-    file_path,verbose=True
+    file_path
     ,verbose=True
     ,beam_size=5
     ,language="ja"
     ,without_timestamps=False
-    ,temperatune=0
+    ,temperature=0
 )
 
 # 推論の結果を格納してファイルに出力
