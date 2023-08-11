@@ -33,7 +33,7 @@ jobs:
           Expand-Archive .\Python.zip -DestinationPath .\src\AITranscribe
           (Get-Content .\src\AITranscribe\Python311._pth) -replace '#import site', 'import site' | Set-Content .\src\AITranscribe\Python311._pth
           Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -Outfile .\src\AITranscribe\get-pip.py
-          .\src\AITranscribe\Python.exe get-pip.py
+          .\src\AITranscribe\Python.exe .\src\AITranscribe\get-pip.py
           .\src\AITranscribe\Python.exe -m pip install git+https://github.com/openai/whisper.git
 
       - name: Build Electron project for Windows
