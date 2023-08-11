@@ -36,8 +36,8 @@ jobs:
 
       - name: Setup pip
         run: |
-          Start-Process -FilePath .\src\AITranscribe\Python.exe -ArgumentList "get-pip.py"
-          Start-Process -FilePath .\src\AITranscribe\Python.exe -ArgumentList "-m pip install git+https://github.com/openai/whisper.git "
+          .\src\AITranscribe\Python.exe get-pip.py
+          .\src\AITranscribe\Python.exe -m pip install git+https://github.com/openai/whisper.git
 
       - name: Build Electron project for Windows
         run: npm run build_win
