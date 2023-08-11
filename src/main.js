@@ -16,7 +16,7 @@ function createWindow() {
   mainWindow.loadFile('./src/index.html');
 
   // 開発者ツールを開きます（オプション）
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 }
 
 // アプリケーションの準備が完了したらウィンドウを作成
