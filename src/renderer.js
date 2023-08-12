@@ -92,9 +92,9 @@ runFFmpeg.addEventListener('click', () => {
     // モデル選択の分岐
     const selectModel = (() => {
         switch (selectModelElement.value) {
-            case '速度重視': return 'AiTranscribe\\model\\base.pt';
-            case '精度重視': return 'AiTranscribe\\model\\small.pt';
-            default: return 'AiTranscribe\\model\\base.pt';
+            case '速度重視': return 'AiTranscribe\\models\\base.pt';
+            case '精度重視': return 'AiTranscribe\\models\\small.pt';
+            default: return 'AiTranscribe\\models\\base.pt';
         }
     }
     )();
