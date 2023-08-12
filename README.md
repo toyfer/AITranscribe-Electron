@@ -13,12 +13,14 @@ OpenAIのWhisperを活用して文字起こしを行うためのソフトウェ�
         - small.pt(精度重視)
     - Python Embeddable(Python環境)
     - AITranscribe.py(Whisper)
-- FFmpeg
     - FFmpeg.exe(音声変換)
+- Transcribe-Suppoter
+    - Suppoter.html
+    - Suppoter.js
 - css
-    - bootstrap5.0.2
+    - bootstrap5.0.2(バージョンアップ予定)
 - js
-    - bootstrap5.0.2
+    - bootstrap5.0.2(バージョンアップ予定)
 - index.html(GUI表示)
 - main.js(メインプロセス処理)
 - renderer.js(レンダラプロセス処理)
@@ -37,4 +39,13 @@ OpenAIのWhisperを活用して文字起こしを行うためのソフトウェ�
 - Electronプロジェクトのビルド
 - FFmpeg.exeのダウンロード
 - Python Embeddableのダウンロード
-を行います。なお、Windows環境を利用します。
+- pipのインストール
+- Whisperのインストール
+- Whisperモデルのダウンロード
+を行います。なお、buildに当たってはWindows環境を利用します。
+
+## 今後の課題
+[ ] bootstrapのバージョンを引き上げる
+[ ] Transcribe-Suppoterの機能を向上する
+[ ] Whisperの高速化を図る(faster-whisperの利用など)
+[ ] LICENSEファイルを整備する
