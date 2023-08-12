@@ -149,7 +149,7 @@ function runAdjustment(args) {
       mainWindow.webContents.send('process:Massage', `[${getNow()}:System]${err}`)
       return;
     } else {
-      mainWindow.webContents.send('process:Massage', `[${getNow()}:System]Ai文字起こしが完了しました`);
+      mainWindow.webContents.send('process:Massage', `[${getNow()}:System]文字起こしが完了しました`);
       return
     }
   });

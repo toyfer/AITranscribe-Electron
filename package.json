@@ -1,6 +1,6 @@
 {
   "name": "AiTranscribe-Electron",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "AIで文字起こしを行うためのソフトウェアです",
   "main": "./src/main.js",
   "scripts": {
