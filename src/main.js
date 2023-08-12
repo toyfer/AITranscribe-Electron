@@ -81,7 +81,7 @@ const tempCSV = `${tempWAV}.csv` // AiTranscribeで出力されるCSVファイ�
 
 // FFmpegの実行
 function runFFmpeg(_event, args) {
-  const FFmpegArgs = `${path.join(__dirname, 'FFmpeg\\ffmpeg.exe')} -y -i ${args[0]} -ar 16000 ${tempWAV}`;
+  const FFmpegArgs = `${path.join(__dirname, 'AITranscribe\\ffmpeg.exe')} -y -i ${args[0]} -ar 16000 ${tempWAV}`;
   const process = spawn(`chcp 65001 && ${FFmpegArgs}`, [], { shell: true, windowsVerbatimArguments: true });
   console.log(FFmpegArgs)
 
