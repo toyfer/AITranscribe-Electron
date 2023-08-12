@@ -29,23 +29,23 @@ OpenAIのWhisperを活用して文字起こしを行うためのソフトウェ�
 ## 使用方法
 使用するには、Whisper及びFFmpeg.exeを指定のディレクトリに配置する必要があります。  
 また、ローカル環境で実行する場合は、Whisperのモデル・Python Embeddableをあらかじめダウンロードしておく必要があります。
-- FFmpeg = src/FFmpeg/FFmpeg.exe
-- Whisper = src/Whisper/AITranscribe.py
-- Python Embeddable = src/Whisper/Python Embeddable.zipの中身
-- model = src/Whisper/model/xxx.pt
+- FFmpeg = src/AITranscribe/FFmpeg.exe
+- Whisper = src/AITranscribe/AITranscribe.py
+- Python Embeddable = src/AITranscribe/Python Embeddable.zipの中身
+- model = src/AITranscribe/models/xxx.pt
 なお、pipの整備とwhisperのインポートが必要です。
 
 ## GitHubActions
-- Electronプロジェクトのビルド
-- FFmpeg.exeのダウンロード
-- Python Embeddableのダウンロード
-- pipのインストール
-- Whisperのインストール
-- Whisperモデルのダウンロード
+1. FFmpeg.exeのダウンロード
+2. Python Embeddableのダウンロード
+3. pipのインストール
+4. Whisperのインストール
+5. Whisperモデルのダウンロード
+6. Electronプロジェクトのビルド  
 を行います。なお、buildに当たってはWindows環境を利用します。
 
 ## 今後の課題
-[ ] bootstrapのバージョンを引き上げる
-[ ] Transcribe-Suppoterの機能を向上する
-[ ] Whisperの高速化を図る(faster-whisperの利用など)
-[ ] LICENSEファイルを整備する
+1. bootstrapのバージョンを引き上げる
+2. Transcribe-Suppoterの機能を向上する
+3. Whisperの高速化を図る(faster-whisperの利用など)
+4. LICENSEファイルを整備する
