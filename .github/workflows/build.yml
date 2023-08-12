@@ -1,7 +1,7 @@
 name: Build Electron Project for Windows
 
 on:
-  push:
+  # push:
   workflow_dispatch:
 
 jobs:

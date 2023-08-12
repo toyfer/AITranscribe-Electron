@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link href="../css/bootstrap-grid.min.css" rel="stylesheet">
+
+    <!-- Title -->
+    <title>文字起こしサポーター</title>
+</head>
+
+<body>
+    <main>
+        <div class="container">
+
+            <!-- Title・CSV File -->
+            <div class="row">
+                <div calss="col">
+                    <h1>文字起こしサポーター</h1>
+                    <h6>このサイトでは、Whisper等で作成したCSVファイルと文字起こしに使用した音声ファイルを使用して、振り返りのサポートを行います</h6>
+                    <h6>CSVと音声ファイルを読み込んで、聞きたい箇所の[TEXT]列をクリックすると、選択した場所から音声が再生されます</h6>
+                    <h6 id="csvTableCharset"></h6>
+
+                    <label for="formFile" class="form-label">CSVファイル</label>
+                    <input class="form-control" type="file" id="csvFileInput" accept=".csv">
+                </div>
+            </div>
+
+            <!-- Audio File -->
+            <div class="row">
+                <div class="col">
+                    <label for="formFile" class="form-label">音声ファイル</label>
+                    <input class="form-control" type="file" id="audioFileInput" accept=".mp3,.wav,.m4a">
+                </div>
+            </div>
+
+            <!-- Show Table -->
+            <div class="row">
+                <div class="col">
+                    <table class="table table-bordered table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Point</th>
+                                <th>Start</th>
+                                <th>End</th>
+                                <th>Text</th>
+                            </tr>
+                        </thead>
+                        <tbody id="csvTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <!-- Audio Control -->
+        <div class="fixed-bottom bg-white">
+            <hr>
+            <audio id="audio" class="float-end"></audio>
+        </div>
+    </footer>
+
+    <!-- Load JavaScript -->
+    <script src="../js/bootstrap.bundle.min.js"></script>
+    <script src="./Suppoter.js"></script>
+
+</body>
+
+</html>
