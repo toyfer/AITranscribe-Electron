@@ -27,11 +27,11 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@electron/asar": "^",
-    "electron": "",
-    "electron-builder": "^"
+    "@electron/asar": "^3.2.4",
+    "electron": "^25.0.0",
+    "electron-builder": "^24.4.0"
   },
   "dependencies": {
-    "iconv-lite": ""
+    "iconv-lite": "^0.6.3"
   }
 }
