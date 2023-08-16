@@ -25,6 +25,7 @@ debugButton.addEventListener('click', () => {
 });
 //▲デバッグモード
 
+//▼デバッグ実行
 runButton.addEventListener('click', () => {
 
     // 実行結果を受け取る前に、テキストエリアを初期化する
@@ -42,6 +43,7 @@ runButton.addEventListener('click', () => {
         window.electronAPI.runCommand(command);
     }
 });
+//▲デバッグ実行
 
 //▼共有セクション
 const outputTextareaElement = document.getElementById('output-textarea');

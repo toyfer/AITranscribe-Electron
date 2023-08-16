@@ -3,54 +3,50 @@
 
 <head>
     <!-- Required meta tags -->
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <!-- Bootstrap CSS -->
-    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet" />
 
     <!-- Title -->
     <title>文字起こしサポーター</title>
 </head>
 
 <body>
-
-
     <!-- Header Section -->
     <header class="header">
         <div class="container">
             <div class="row">
-
+                <!-- Title -->
                 <div calss="col">
-                    <!-- Title -->
                     <h2 id="title-label">文字起こしサポーター</h2>
-                    <p>CSVと音声ファイルを読み込んで、聞きたい箇所の[TEXT]列をクリックすると、選択した場所から音声が再生されます</p>
-                    <h6 id="csvTableCharset"></h6>
+                    <p>
+                        CSVと音声ファイルを読み込んで、聞きたい箇所の[TEXT]列をクリックすると、選択した場所から音声が再生されます
+                    </p>
                 </div>
 
+                <!-- CSV File -->
                 <div class="col-6">
-                    <!-- CSV File -->
                     <label for="formFileSm" class="form-label">CSVファイル</label>
-                    <input class="form-control" type="file" id="csvFileInput" accept=".csv">
+                    <input class="form-control" type="file" id="csvFileInput" accept=".csv" />
                 </div>
 
+                <!-- Audio File -->
                 <div class="col-6">
-                    <!-- Audio File -->
                     <label for="formFileSm" class="form-label">音声ファイル</label>
-                    <input class="form-control" type="file" id="audioFileInput" accept=".mp3,.wav,.m4a">
+                    <input class="form-control" type="file" id="audioFileInput" accept=".mp3,.wav,.m4a" />
                 </div>
-
             </div>
         </div>
     </header>
 
-    <hr>
+    <hr />
 
     <!-- Show Table -->
     <main class="main">
         <div class="container">
             <div class="row">
-
                 <div class="col">
                     <table class="table table-bordered table-sm table-hover">
                         <thead>
@@ -61,11 +57,9 @@
                                 <th>Text</th>
                             </tr>
                         </thead>
-                        <tbody id="csvTableBody">
-                        </tbody>
+                        <tbody id="csvTableBody"></tbody>
                     </table>
                 </div>
-
             </div>
         </div>
     </main>
@@ -73,27 +67,25 @@
     <footer class="footer">
         <div class="container">
             <div class="row">
+                <div class="col">
+                    <!-- Audio Control -->
+                    <div class="fixed-bottom bg-white">
+                        <hr />
+                        <audio id="audio" class="float-end"></audio>
+                    </div>
 
-                <!-- Audio Control -->
-                <div class="fixed-bottom bg-white">
-                    <hr>
-                    <audio id="audio" class="float-end"></audio>
+                    <!-- Return Button -->
+                    <div class="d-grid gap-2 fixed-bottom">
+                        <a class="btn btn-info" href="../index.html">戻る</a>
+                    </div>
                 </div>
-
-                <!-- Return Button -->
-                <div class="d-grid gap-2 fixed-bottom">
-                    <a class="btn btn-info" href="../index.html">戻る</a>
-                </div>
-
             </div>
         </div>
-
     </footer>
 
     <!-- Load JavaScript -->
     <script src="../js/bootstrap.bundle.min.js"></script>
     <script src="./Suppoter.js"></script>
-
 </body>
 
 </html>
