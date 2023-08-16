@@ -5,7 +5,7 @@ const os = require('os');
 const fs = require('fs');
 const iconv = require('iconv-lite');
 
-//▼描写・プリロード
+// ▼描写・プリロード関数
 function createWindow() {
   // ブラウザウィンドウを作成
   mainWindow = new BrowserWindow({
@@ -15,7 +15,7 @@ function createWindow() {
   });
   mainWindow.loadFile('./src/index.html');
 
-  // 開発者ツールを開きます（オプション）
+  // 開発者ツールを開く（オプション）
   // mainWindow.webContents.openDevTools();
 }
 
@@ -38,7 +38,7 @@ app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
 
-//▼実行セクション
+// ▼実行セクション
 // ファイル選択ダイアログ
 async function handleFileOpen() {
   const { canceled, filePaths } = await dialog.showOpenDialog();
