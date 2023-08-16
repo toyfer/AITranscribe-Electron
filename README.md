@@ -19,9 +19,9 @@ OpenAIのWhisperを活用して文字起こしを行うためのソフトウェ�
     - Suppoter.html
     - Suppoter.js
 - css
-    - bootstrap5.0.2(バージョンアップ予定)
+    - bootstrap5.3.0
 - js
-    - bootstrap5.0.2(バージョンアップ予定)
+    - bootstrap5.3.0
 - index.html(GUI表示)
 - main.js(メインプロセス処理)
 - renderer.js(レンダラプロセス処理)
@@ -34,6 +34,7 @@ OpenAIのWhisperを活用して文字起こしを行うためのソフトウェ�
 - Whisper = src/Whisper/Whisper.py
 - Python Embeddable = src/Whisper/Python Embeddable.zipの中身
 - model = src/Whisper/models/xxx.pt
+- small,medium = src/Whisper/models/small,medium Faster
 なお、pipの整備とwhisperのインポートが必要です。
 
 ## GitHubActions
@@ -42,7 +43,7 @@ OpenAIのWhisperを活用して文字起こしを行うためのソフトウェ�
 3. pipのインストール
 4. Whisperのインストール
 5. Whisperモデルのダウンロード
-6. Electronプロジェクトのビルド  
+6. Electronプロジェクトのビルド
 を行います。なお、buildに当たってはWindows環境を利用します。
 
 ## 今後の課題

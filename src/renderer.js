@@ -110,6 +110,7 @@ runFFmpeg.addEventListener('click', () => {
     runFFmpeg.innerText = '処理中です…';
     filePathElement.disabled = true;
     fileSelectButton.disabled = true;
+    selectModelElement.disabled = true;
 
     // メインプロセスの実行
     window.electronAPI.runFFmpeg([FFmpegArgs, WhisperArgs]);
@@ -133,4 +134,5 @@ window.electronAPI.processMassage((_event, massage) => {
     runFFmpeg.innerText = 'スタート';
     filePathElement.disabled = false;
     fileSelectButton.disabled = false;
+    selectModelElement.disabled = false;
 });
