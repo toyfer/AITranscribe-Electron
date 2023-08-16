@@ -71,7 +71,7 @@ filePathElement.addEventListener('click', async () => {
 //▼コマンド実行セクション
 const selectModelElement = document.getElementById('select-model');
 
-// FFmpeg&AiTranscribeの実行
+// FFmpeg&Whisperの実行
 const runFFmpeg = document.getElementById('run-ffmpeg');
 runFFmpeg.addEventListener('click', () => {
 
@@ -92,9 +92,9 @@ runFFmpeg.addEventListener('click', () => {
     // モデル選択の分岐
     const selectModel = (() => {
         switch (selectModelElement.value) {
-            case '速度重視': return 'AiTranscribe\\models\\base.pt';
-            case '精度重視': return 'AiTranscribe\\models\\small.pt';
-            default: return 'AiTranscribe\\models\\base.pt';
+            case '速度重視': return 'Whisper\\models\\base.pt';
+            case '精度重視': return 'Whisper\\models\\small.pt';
+            default: return 'Whisper\\models\\base.pt';
         }
     }
     )();
@@ -102,8 +102,8 @@ runFFmpeg.addEventListener('click', () => {
     // FFmpegの引数設定(renderer)
     const FFmpegArgs = filePathElement.value;
 
-    // AiTranscribeの引数設定(rendere)
-    const AiTranscribeArgs = selectModel;
+    // Whisperの引数設定(rendere)
+    const WhisperArgs = selectModel;
 
     // 各項目を無効化
     runFFmpeg.disabled = true;
@@ -112,7 +112,7 @@ runFFmpeg.addEventListener('click', () => {
     fileSelectButton.disabled = true;
 
     // メインプロセスの実行
-    window.electronAPI.runFFmpeg([FFmpegArgs, AiTranscribeArgs]);
+    window.electronAPI.runFFmpeg([FFmpegArgs, WhisperArgs]);
 });
 
 // メインプロセスの標準出力を受け取る

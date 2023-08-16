@@ -7,12 +7,13 @@ OpenAIのWhisperを活用して文字起こしを行うためのソフトウェ�
 ## ビルド手順
 
 ## ディレクトリ構造
-- AITranscribe
+- Whisper
     - model
         - base.pt(速度重視)
         - small.pt(精度重視)
     - Python Embeddable(Python環境)
-    - AITranscribe.py(Whisper)
+    - Whisper.py(Whisper)
+    - Faster-Whisper.py(Faster-Whisper)
     - FFmpeg.exe(音声変換)
 - Transcribe-Suppoter
     - Suppoter.html
@@ -29,10 +30,10 @@ OpenAIのWhisperを活用して文字起こしを行うためのソフトウェ�
 ## 使用方法
 使用するには、Whisper及びFFmpeg.exeを指定のディレクトリに配置する必要があります。  
 また、ローカル環境で実行する場合は、Whisperのモデル・Python Embeddableをあらかじめダウンロードしておく必要があります。
-- FFmpeg = src/AITranscribe/FFmpeg.exe
-- Whisper = src/AITranscribe/AITranscribe.py
-- Python Embeddable = src/AITranscribe/Python Embeddable.zipの中身
-- model = src/AITranscribe/models/xxx.pt
+- FFmpeg = src/Whisper/FFmpeg.exe
+- Whisper = src/Whisper/Whisper.py
+- Python Embeddable = src/Whisper/Python Embeddable.zipの中身
+- model = src/Whisper/models/xxx.pt
 なお、pipの整備とwhisperのインポートが必要です。
 
 ## GitHubActions

@@ -28,18 +28,19 @@ jobs:
 
       - name: Whisper Models Download
         run: |
-          Invoke-WebRequest -Uri https://openaipublic.azureedge.net/main/whisper/models/ed3a0b6b1c0edf879ad9b11b1af5a0e6ab5db9205f891f668f8b0e6c6326e34e/base.pt -OutFile .\src\AITranscribe\models\base.pt
-          Invoke-WebRequest -Uri https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt -OutFile .\src\AITranscribe\models\small.pt
+          Invoke-WebRequest -Uri https://openaipublic.azureedge.net/main/whisper/models/ed3a0b6b1c0edf879ad9b11b1af5a0e6ab5db9205f891f668f8b0e6c6326e34e/base.pt -OutFile .\src\Whisper\models\base.pt
+          Invoke-WebRequest -Uri https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt -OutFile .\src\Whisper\models\small.pt
 
       - name: Setup dependencies
         run: |
           Expand-Archive .\FFmpeg.zip .\
-          Copy-Item -path .\ffmpeg-master-latest-win64-lgpl\bin\ffmpeg.exe .\src\AITranscribe\
-          Expand-Archive .\Python.zip -DestinationPath .\src\AITranscribe
-          (Get-Content .\src\AITranscribe\Python311._pth) -replace '#import site', 'import site' | Set-Content .\src\AITranscribe\Python311._pth
-          Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -Outfile .\src\AITranscribe\get-pip.py
-          .\src\AITranscribe\Python.exe .\src\AITranscribe\get-pip.py
-          .\src\AITranscribe\Python.exe -m pip install git+https://github.com/openai/whisper.git
+          Copy-Item -path .\ffmpeg-master-latest-win64-lgpl\bin\ffmpeg.exe .\src\Whisper\
+          Expand-Archive .\Python.zip -DestinationPath .\src\Whisper
+          (Get-Content .\src\Whisper\Python311._pth) -replace '#import site', 'import site' | Set-Content .\src\Whisper\Python311._pth
+          Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -Outfile .\src\Whisper\get-pip.py
+          .\src\Whisper\Python.exe .\src\Whisper\get-pip.py
+          .\src\Whisper\Python.exe -m pip install -U openai-whisper
+          .\src\Whisper\Python.exe -m pip install -U faster-whisper
 
       - name: Build Electron project for Windows
         run: npm run build_win
@@ -47,6 +48,6 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: AITranscribe-Electron
+          name: Whisper-Electron
           path: build/*.zip
           #path: build/win-unpacked/

@@ -25,7 +25,7 @@ app.whenReady().then(() => {
   ipcMain.handle('dialog:openFile', handleFileOpen); // ファイル選択のリッスン
   ipcMain.on('execute:runCommand', runCommand); // デバッグ用リッスン
   ipcMain.on('execute:runFFmpeg', runFFmpeg); // FFmpeg用リッスン
-  ipcMain.on('execute:runAiTranscribe', runAiTranscribe); // AiTranscribe用リッスン（使わない）
+  ipcMain.on('execute:runWhisper', runWhisper); // Whisper用リッスン（使わない）
   createWindow(); // ウィンドウ作成
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -77,11 +77,11 @@ function runCommand(_, command) {
 // 共有セクションの実行
 const tempDir = os.tmpdir(); // 一時ディレクトリのパスを取得
 const tempWAV = `${tempDir}\\temp.wav` // FFmpegで出力されるWAVファイルのパスを定義
-const tempCSV = `${tempWAV}.csv` // AiTranscribeで出力されるCSVファイルのパスを定義
+const tempCSV = `${tempWAV}.csv` // Whisperで出力されるCSVファイルのパスを定義
 
 // FFmpegの実行
 function runFFmpeg(_event, args) {
-  const FFmpegArgs = `${path.join(__dirname, 'AITranscribe\\ffmpeg.exe')} -y -i ${args[0]} -ar 16000 ${tempWAV}`;
+  const FFmpegArgs = `${path.join(__dirname, 'Whisper\\ffmpeg.exe')} -y -i ${args[0]} -ar 16000 ${tempWAV}`;
   const process = spawn(`chcp 65001 && ${FFmpegArgs}`, [], { shell: true, windowsVerbatimArguments: true });
   console.log(FFmpegArgs)
 
@@ -106,36 +106,36 @@ function runFFmpeg(_event, args) {
     }
     console.log(`[${getNow()}:FFmpeg]child process exited with code ${code}`);
     mainWindow.webContents.send('return:Command', `[${getNow()}:FFmpeg]音声処理が完了しました`);
-    runAiTranscribe(args)
+    runWhisper(args)
   });
 }
 
-// AiTranscribeの実行
-function runAiTranscribe(args) {
-  const AiTranscribeArgs = `${path.join(__dirname, 'AiTranscribe\\python.exe')} ${path.join(__dirname, 'AiTranscribe\\AiTranscribe.py')} ${path.join(__dirname, args[1])} ${tempWAV}`;
-  const process = spawn(`chcp 65001 && ${AiTranscribeArgs}`, [], { shell: true, windowsVerbatimArguments: true });
+// Whisperの実行
+function runWhisper(args) {
+  const WhisperArgs = `${path.join(__dirname, 'Whisper\\python.exe')} ${path.join(__dirname, 'Whisper\\Whisper.py')} ${path.join(__dirname, args[1])} ${tempWAV}`;
+  const process = spawn(`chcp 65001 && ${WhisperArgs}`, [], { shell: true, windowsVerbatimArguments: true });
 
   // 標準出力
   process.stdout.on('data', (data) => {
-    console.log(`[${getNow()}:AiTranscribe]${iconv.decode(data, "Shift_JIS")}`);
-    mainWindow.webContents.send('return:Command', `[${getNow()}:AiTranscribe]${iconv.decode(data, "Shift_JIS")}`);
+    console.log(`[${getNow()}:Whisper]${iconv.decode(data, "Shift_JIS")}`);
+    mainWindow.webContents.send('return:Command', `[${getNow()}:Whisper]${iconv.decode(data, "Shift_JIS")}`);
   });
 
   // エラー出力
   process.stderr.on('data', (data) => {
-    console.log(`[${getNow()}:AiTranscribe]${iconv.decode(data, "Shift_JIS")}`);
-    mainWindow.webContents.send('return:Command', `[${getNow()}:AiTranscribe]${iconv.decode(data, "Shift_JIS")}`);
+    console.log(`[${getNow()}:Whisper]${iconv.decode(data, "Shift_JIS")}`);
+    mainWindow.webContents.send('return:Command', `[${getNow()}:Whisper]${iconv.decode(data, "Shift_JIS")}`);
   });
 
   // 終了時出力
   process.on('close', (code) => {
     // エラーハンドリング
     if (code != 0) {
-      mainWindow.webContents.send('process:Massage', `[${getNow()}:AiTranscribe]エラーが発生しました\n errorcode:${code}`);
+      mainWindow.webContents.send('process:Massage', `[${getNow()}:Whisper]エラーが発生しました\n errorcode:${code}`);
       return;
     }
-    console.log(`[${getNow()}:AiTranscribe]child process exited with code ${code}`);
-    mainWindow.webContents.send('return:Command', `[${getNow()}:AiTranscribe]文字起こしが完了しました`);
+    console.log(`[${getNow()}:Whisper]child process exited with code ${code}`);
+    mainWindow.webContents.send('return:Command', `[${getNow()}:Whisper]文字起こしが完了しました`);
     runAdjustment(args);
   });
 }
