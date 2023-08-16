@@ -1,4 +1,4 @@
-import whisper
+from faster_whisper import WhisperModel
 import logging
 import sys
 import os
@@ -18,17 +18,14 @@ models_path = args[1]
 file_path = args[2]
 
 # 使用するモデルを決定します
-model = whisper.load_model(f"{models_path}")
+model = WhisperModel(model_path, device="cpu", compute_type="int8")
 
 # 推論を開始します
-result = model.transcribe(
+result, _ = model.transcribe(
     file_path
-    ,verbose=True
     ,beam_size=5
     ,language="ja"
-    ,without_timestamps=False
-    ,temperature=0
-)
+    )
 
 # 推論の結果を格納してファイルに出力
 with open(f"{file_path}.csv","w") as f:
@@ -37,8 +34,8 @@ with open(f"{file_path}.csv","w") as f:
     text_old = ""
 
     # 書き起こし結果を出力ファイルに書き込みます
-    for segments in result["segments"]:
+    for segments in result:
         # 推論が重複している場合はCSVに記述しない
-        if text_old != segments['text']:
-            f.write(f"{segments['id']},{segments['start']},{segments['end']},{segments['text']}\n")
-            text_old = segments['text']
+        if text_old != segments.text:
+            f.write(f"{segments.id},{segments.start},{segments.end},{segments.end}\n")
+            text_old = segments.text
