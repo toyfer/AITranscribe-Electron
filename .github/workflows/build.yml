@@ -5,7 +5,43 @@ on:
   workflow_dispatch:
 
 jobs:
+  setup:
+    runs-on: windows-latest
+    outputs:
+      ffmpeg-cache-key: ${{ steps.ffmpeg-cache-key.outputs.key }}
+      python-cache-key: ${{ steps.python-cache-key.outputs.key }}
+    steps:
+      - name: Generate FFmpeg cache key
+        id: ffmpeg-cache-key
+        run: echo "::set-output name=key::ffmpeg-$(Get-Date -Format yyyyMMdd)"
+      - name: Restore FFmpeg cache
+        uses: actions/cache@v3
+        with:
+          path: ffmpeg-master-latest-win64-lgpl
+          key: ${{ steps.ffmpeg-cache-key.outputs.key }}
+      - name: FFmpeg Download
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        run: Invoke-WebRequest -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -Outfile FFmpeg.zip 
+      - name: Extract FFmpeg
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        run: Expand-Archive .\FFmpeg.zip .\
+      - name: Generate Python cache key
+        id: python-cache-key
+        run: echo "::set-output name=key::python-$(Get-Date -Format yyyyMMdd)"
+      - name: Restore Python cache
+        uses: actions/cache@v3
+        with:
+          path: python-3.11.4-embed-amd64
+          key: ${{ steps.python-cache-key.outputs.key }}
+      - name: Python Embeddable Download
+        if: steps.python-cache.outputs.cache-hit != 'true'
+        run: Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
+      - name: Extract Python
+        if: steps.python-cache.outputs.cache-hit != 'true'
+        run: Expand-Archive .\Python.zip .\
+
   build:
+    needs: setup
     runs-on: windows-latest
 
     steps:
@@ -16,15 +52,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
+          cache: npm
 
       - name: Install Node.js dependencies
         run: npm install
-
-      - name: FFmpeg Download
-        run: Invoke-WebRequest -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -Outfile FFmpeg.zip 
-
-      - name: Python Embeddable Download
-        run: Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
 
       - name: Whisper Models Download
         run: |
@@ -33,9 +64,8 @@ jobs:
 
       - name: Setup dependencies
         run: |
-          Expand-Archive .\FFmpeg.zip .\
           Copy-Item -path .\ffmpeg-master-latest-win64-lgpl\bin\ffmpeg.exe .\src\Whisper\
-          Expand-Archive .\Python.zip -DestinationPath .\src\Whisper
+          Copy-Item -path .\python-3.11.4-embed-amd64 .\src\Whisper -Recurse
           (Get-Content .\src\Whisper\Python311._pth) -replace '#import site', 'import site' | Set-Content .\src\Whisper\Python311._pth
           Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -Outfile .\src\Whisper\get-pip.py
           .\src\Whisper\Python.exe .\src\Whisper\get-pip.py
@@ -52,4 +82,3 @@ jobs:
         with:
           name: AITranscribe-Electron
           path: build/*.zip
-          #path: build/win-unpacked/
