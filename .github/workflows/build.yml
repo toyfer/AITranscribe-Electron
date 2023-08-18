@@ -42,6 +42,7 @@ jobs:
           .\src\Whisper\Python.exe -m pip install -U pip
           .\src\Whisper\Python.exe -m pip install git+https://github.com/openai/whisper.git 
           .\src\Whisper\Python.exe -m pip install --force-reinstall "faster-whisper @ https://github.com/guillaumekln/faster-whisper/archive/refs/heads/master.tar.gz"
+          .\src\Whisper\Python.exe -m pip install numpy==1.24
 
       - name: Build Electron project for Windows
         run: npm run build_win
