@@ -1,5 +1,5 @@
 {
-  "name": "AiTranscribe-Electron",
+  "name": "AITranscribe-Electron",
   "version": "1.0.0",
   "description": "AIで文字起こしを行うためのソフトウェアです",
   "main": "./src/main.js",
