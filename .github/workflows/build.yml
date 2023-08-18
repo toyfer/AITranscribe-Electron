@@ -39,6 +39,7 @@ jobs:
           (Get-Content .\src\Whisper\Python311._pth) -replace '#import site', 'import site' | Set-Content .\src\Whisper\Python311._pth
           Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -Outfile .\src\Whisper\get-pip.py
           .\src\Whisper\Python.exe .\src\Whisper\get-pip.py
+          .\src\Whisper\Python.exe -m pip install --upgrade pip
           .\src\Whisper\Python.exe -m pip install -U openai-whisper
           .\src\Whisper\Python.exe -m pip install -U faster-whisper
 
