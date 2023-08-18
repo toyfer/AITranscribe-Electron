@@ -40,8 +40,8 @@ jobs:
           Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -Outfile .\src\Whisper\get-pip.py
           .\src\Whisper\Python.exe .\src\Whisper\get-pip.py
           .\src\Whisper\Python.exe -m pip install -U pip
-          .\src\Whisper\Python.exe -m pip install -U openai-whisper
-          .\src\Whisper\Python.exe -m pip install -U faster-whisper
+          .\src\Whisper\Python.exe -m pip install git+https://github.com/openai/whisper.git 
+          .\src\Whisper\Python.exe -m pip install --force-reinstall "faster-whisper @ https://github.com/guillaumekln/faster-whisper/archive/refs/heads/master.tar.gz"
 
       - name: Build Electron project for Windows
         run: npm run build_win
