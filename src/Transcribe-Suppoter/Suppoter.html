@@ -19,13 +19,19 @@
         <div class="container">
             <div class="row">
                 <!-- Title -->
-                <div calss="col">
+                <div calss="col-12">
                     <h2 id="title-label">文字起こしサポーター</h2>
+                </div>
+
+                <div class="col-10">
                     <p>
                         CSVと音声ファイルを読み込んで、聞きたい箇所の[TEXT]列をクリックすると、選択した場所から音声が再生されます
                     </p>
-                    <!-- Aucdio Control -->
-                    <audio id="audio" class="float-end"></audio>
+                </div>
+
+                <!-- Return Button -->
+                <div class="col-2 d-grid gap-2">
+                    <a class="btn btn-secondary" href="../index.html">戻る</a>
                 </div>
 
                 <!-- CSV File -->
@@ -70,12 +76,15 @@
         <div class="container">
             <div class="row">
                 <div class="col">
-                    <!-- Return Button -->
-                    <div class="d-grid gap-2 fixed-bottom">
-                        <a class="btn btn-secondary" href="../index.html">戻る</a>
+
+                    <!-- Aucdio Control -->
+                    <div class="" fixed-bottom bg-light border">
+                        <audio id="audio" class="float-end"></audio>
                     </div>
+                    
                 </div>
             </div>
+        </div>
         </div>
     </footer>
 
