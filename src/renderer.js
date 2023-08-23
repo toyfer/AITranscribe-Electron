@@ -94,8 +94,9 @@ runFFmpeg.addEventListener('click', () => {
     // モデル選択の分岐
     const selectModel = (() => {
         switch (selectModelElement.value) {
-            case '速度重視': return 'Whisper\\models\\base.pt';
-            case '精度重視': return 'Whisper\\models\\small.pt';
+            case '1': return 'Whisper\\models\\base.pt';
+            case '2': return 'Whisper\\models\\small.pt';
+            case '3': return 'Whisper\\models\\small';
             default: return 'Whisper\\models\\base.pt';
         }
     }
