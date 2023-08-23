@@ -30,6 +30,7 @@ jobs:
         run: |
           Invoke-WebRequest -Uri https://openaipublic.azureedge.net/main/whisper/models/ed3a0b6b1c0edf879ad9b11b1af5a0e6ab5db9205f891f668f8b0e6c6326e34e/base.pt -OutFile .\src\Whisper\models\base.pt
           Invoke-WebRequest -Uri https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt -OutFile .\src\Whisper\models\small.pt
+          git clone https://huggingface.co/guillaumekln/faster-whisper-small .\src\Whisper\models\small\
 
       - name: Setup dependencies
         run: |
@@ -43,6 +44,7 @@ jobs:
           .\src\Whisper\Python.exe -m pip install git+https://github.com/openai/whisper.git 
           .\src\Whisper\Python.exe -m pip install --force-reinstall "faster-whisper @ https://github.com/guillaumekln/faster-whisper/archive/refs/heads/master.tar.gz"
           .\src\Whisper\Python.exe -m pip install numpy==1.24
+
 
       - name: Build Electron project for Windows
         run: npm run build_win
