@@ -112,7 +112,7 @@ function runFFmpeg(_event, args) {
 
 // Whisperの実行
 function runWhisper(args) {
-  const WhisperArgs = `${path.join(__dirname, 'Whisper\\python.exe')} ${path.join(__dirname, 'Whisper\\Whisper.py')} ${path.join(__dirname, args[1])} ${tempWAV}`;
+  const WhisperArgs = `${path.join(__dirname, 'Whisper\\python.exe')} ${path.join(__dirname, args[1].script)} ${path.join(__dirname, args[1].model)} ${tempWAV}`;
   const process = spawn(`chcp 65001 && ${WhisperArgs}`, [], { shell: true, windowsVerbatimArguments: true });
 
   // 標準出力

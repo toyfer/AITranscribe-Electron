@@ -13,7 +13,7 @@ titleLabel.addEventListener('click', () => {
             debugButton.hidden = false;
         } else {
             return;
-        } 
+        }
     } else {
         return;
     }
@@ -94,10 +94,21 @@ runFFmpeg.addEventListener('click', () => {
     // モデル選択の分岐
     const selectModel = (() => {
         switch (selectModelElement.value) {
-            case '1': return 'Whisper\\models\\base.pt';
-            case '2': return 'Whisper\\models\\small.pt';
-            case '3': return 'Whisper\\models\\small';
-            default: return 'Whisper\\models\\base.pt';
+            case '1':
+                return {
+                    model: 'Whisper\\models\\base.pt',
+                    script: 'Whisper\\Whisper.py'
+                };
+            case '2':
+                return {
+                    model: 'Whisper\\models\\small.pt',
+                    script: 'Whisper\\Whisper.py'
+                };
+            case '3':
+                return {
+                    model: 'Whisper\\models\\small',
+                    script: 'Whisper\\Faster-Whisper.py'
+                };
         }
     }
     )();
