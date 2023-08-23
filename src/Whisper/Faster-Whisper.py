@@ -37,5 +37,5 @@ with open(f"{file_path}.csv","w") as f:
     for segments in result:
         # 推論が重複している場合はCSVに記述しない
         if text_old != segments.text:
-            f.write(f"{segments.id},{segments.start},{segments.end},{segments.end}\n")
+            f.write(f"{segments.id},{segments.start},{segments.end},{segments.text}\n")
             text_old = segments.text
