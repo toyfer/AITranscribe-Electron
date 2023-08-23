@@ -31,6 +31,7 @@ jobs:
           Invoke-WebRequest -Uri https://openaipublic.azureedge.net/main/whisper/models/ed3a0b6b1c0edf879ad9b11b1af5a0e6ab5db9205f891f668f8b0e6c6326e34e/base.pt -OutFile .\src\Whisper\models\base.pt
           Invoke-WebRequest -Uri https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794/small.pt -OutFile .\src\Whisper\models\small.pt
           git clone https://huggingface.co/guillaumekln/faster-whisper-small .\src\Whisper\small\
+          
         run: |
           Expand-Archive .\FFmpeg.zip .\
           Copy-Item -path .\ffmpeg-master-latest-win64-lgpl\bin\ffmpeg.exe .\src\Whisper\
