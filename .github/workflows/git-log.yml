@@ -1,0 +1,15 @@
+name: Display Git Log
+
+on:
+  push:
+
+jobs:
+  display-log:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Display Git Log
+        run: git log
