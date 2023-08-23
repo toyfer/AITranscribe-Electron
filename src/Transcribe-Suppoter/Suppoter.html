@@ -19,11 +19,17 @@
         <div class="container">
             <div class="row">
                 <!-- Title -->
-                <div calss="col">
+                <div class="col-12">
                     <h2 id="title-label">文字起こしサポーター</h2>
-                    <p>
-                        CSVと音声ファイルを読み込んで、聞きたい箇所の[TEXT]列をクリックすると、選択した場所から音声が再生されます
-                    </p>
+                </div>
+
+                <div class="col-10">
+                    <p>CSVと音声ファイルを読み込んで、聞きたい箇所の[TEXT]列をクリックすると、選択した時間から音声が再生されます。</p>
+                </div>
+
+                <!-- Return Button -->
+                <div class="col-2 d-grid gap-2">
+                    <a class="btn btn-secondary" href="../index.html">戻る</a>
                 </div>
 
                 <!-- CSV File -->
@@ -37,6 +43,7 @@
                     <label for="formFileSm" class="form-label">音声ファイル</label>
                     <input class="form-control" type="file" id="audioFileInput" accept=".mp3,.wav,.m4a" />
                 </div>
+
             </div>
         </div>
     </header>
@@ -69,14 +76,8 @@
             <div class="row">
                 <div class="col">
                     <!-- Audio Control -->
-                    <div class="fixed-bottom bg-white">
-                        <hr />
+                    <div class="fixed-bottom bg-white border">
                         <audio id="audio" class="float-end"></audio>
-                    </div>
-
-                    <!-- Return Button -->
-                    <div class="d-grid gap-2 fixed-bottom">
-                        <a class="btn btn-secondary" href="../index.html">戻る</a>
                     </div>
                 </div>
             </div>
