@@ -18,7 +18,7 @@ models_path = args[1]
 file_path = args[2]
 
 # 使用するモデルを決定します
-model = WhisperModel(model_path, device="cpu", compute_type="int8")
+model = WhisperModel(models_path, device="cpu", compute_type="int8")
 
 # 推論を開始します
 result, _ = model.transcribe(
