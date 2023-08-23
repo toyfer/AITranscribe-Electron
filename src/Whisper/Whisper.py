@@ -26,7 +26,7 @@ result = model.transcribe(
     ,verbose=True
     ,beam_size=5
     ,language="ja"
-    ,without_timestamps=False
+    ,word_timestamp=True
     ,temperature=0
 )
 
