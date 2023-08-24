@@ -96,19 +96,14 @@ runFFmpeg.addEventListener('click', () => {
         switch (selectModelElement.value) {
             case '1':
                 return {
-                    model: 'Whisper\\models\\base.pt',
-                    script: 'Whisper\\Whisper.py'
-                };
-            case '2':
-                return {
-                    model: 'Whisper\\models\\small.pt',
-                    script: 'Whisper\\Whisper.py'
-                };
-            case '3':
-                return {
                     model: 'Whisper\\models\\small',
                     script: 'Whisper\\Faster-Whisper.py'
                 };
+            case "2":
+                return {
+                    model: 'Whisper\\models\\medium',
+                    script: 'Whisper\\Faster-Whisper.py'
+                }
         }
     }
     )();

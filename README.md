@@ -8,11 +8,14 @@ OpenAIのWhisperを活用して文字起こしを行うためのソフトウェ�
 
 ## ディレクトリ構造
 - Whisper
-    - model
-        - base.pt(速度重視)
-        - small.pt(精度重視)
+    - models
+        - ~~base.pt(速度重視)~~
+        - ~~small.pt(精度重視)~~
+        - small(精度重視)
+        - medium(最高精度)
     - Python Embeddable(Python環境)
-    - Whisper.py(Whisper)
+        - Python 3.11.4
+    - ~~Whisper.py(Whisper)~~
     - Faster-Whisper.py(Faster-Whisper)
     - FFmpeg.exe(音声変換)
 - Transcribe-Suppoter
@@ -31,32 +34,35 @@ OpenAIのWhisperを活用して文字起こしを行うためのソフトウェ�
 使用するには、Whisper及びFFmpeg.exeを指定のディレクトリに配置する必要があります。  
 また、ローカル環境で実行する場合は、Whisperのモデル・Python Embeddableをあらかじめダウンロードしておく必要があります。
 - FFmpeg = src/Whisper/FFmpeg.exe
-- Whisper = src/Whisper/Whisper.py
+- ~~Whisper = src/Whisper/Whisper.py~~v2.0.0で廃止
+- Faster-Whisper = src/Whisper/FasterWhisper.py
+    - models -> small,medium = src/Whisper/models/small,medium Faster-Whisper
 - Python Embeddable = src/Whisper/Python Embeddable.zipの中身
-- model = src/Whisper/models/xxx.pt
-- small,medium = src/Whisper/models/small,medium Faster
-なお、pipの整備とwhisperのインポートが必要です。
+- models = ~~src/Whisper/models/xxx.pt~~v2.0.0で廃止
+なお、pipの整備とFaster-whisperのインポートが必要です。
 
 ## GitHubActions
 1. FFmpeg.exeのダウンロード
 2. Python Embeddableのダウンロード
 3. pipのインストール
-4. Whisperのインストール
-5. Whisperモデルのダウンロード
+4. ~~Whisperのインストール~~
+4. Faster-Whisperのインストール
+5. ~~Whisperモデルのダウンロード~~
+5. Faster-Whisperモデルのインストール
 6. Electronプロジェクトのビルド
 を行います。なお、buildに当たってはWindows環境を利用します。
 
 ## 今後の課題
-1. bootstrapのバージョンを引き上げる
+1. ~~bootstrapのバージョンを引き上げる~~
 2. Transcribe-Suppoterの機能を向上する
-3. Whisperの高速化を図る(faster-whisperの利用など)
+3. ~~Whisperの高速化を図る(faster-whisperの利用など)~~
 4. LICENSEファイルを整備する
 
 ## バージョン番号の整理方法
 ![image](https://go.dev/doc/modules/images/version-number.png)
 | バージョンの段階 | 例 | 開発者へのメッセージ |
 | --- | --- | --- |
-| 開発中 | 自動的な疑似バージョン番号 `v0.x.x` | このモジュールがまだ開発中であり、不安定であることを示します。このリリースは、後方互換性や安定性を保証しません。 |
+| 開発中 | `v0.x.x` | このモジュールがまだ開発中であり、不安定であることを示します。このリリースは、後方互換性や安定性を保証しません。 |
 | メジャーバージョン | `v1.x.x` | 後方互換性のない、公開APIの変更を示します。このリリースは、以前のメジャーバージョンとの後方互換性を保証しません。
 | マイナーバージョン | `vx.4.x` | 後方互換性のある、公開APIの変更を示します。このリリースは後方互換性と安定性を保証します。
 | パッチバージョン | `vx.x.1` | モジュールの公開APIや依存関係に影響を与えない変更を示します。このリリースは後方互換性と安定性を保証します。
