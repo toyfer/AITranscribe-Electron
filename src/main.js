@@ -3,9 +3,9 @@ const { spawn } = require('child_process');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const iconv = require('iconv-lite');
+const iconv = require('iconv-lite'); // CMDを利用する関係でShift_JISエンコードが必要
 
-// ▼描写・プリロード関数
+// 描写・プリロード関数
 function createWindow() {
   // ブラウザウィンドウを作成
   mainWindow = new BrowserWindow({
@@ -38,8 +38,8 @@ app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// ▼実行セクション
-// ファイル選択ダイアログ
+// 実行セクション
+// ファイル選択ダイアログの表示
 async function handleFileOpen() {
   const { canceled, filePaths } = await dialog.showOpenDialog();
   if (!canceled) {
@@ -73,8 +73,8 @@ function runCommand(_, command) {
 }
 
 
-// ▼文字起こし開始
-// 共有セクションの実行
+// 文字起こし開始
+// 共通の変数を宣言
 const tempDir = os.tmpdir(); // 一時ディレクトリのパスを取得
 const tempWAV = `${tempDir}\\temp.wav` // FFmpegで出力されるWAVファイルのパスを定義
 const tempCSV = `${tempWAV}.csv` // Whisperで出力されるCSVファイルのパスを定義
@@ -85,19 +85,19 @@ function runFFmpeg(_event, args) {
   const process = spawn(`chcp 65001 && ${FFmpegArgs}`, [], { shell: true, windowsVerbatimArguments: true });
   console.log(FFmpegArgs)
 
-  // 標準出力
+  // 標準出力リッスン
   process.stdout.on('data', (data) => {
     console.log(`[${getNow()}:FFmpeg]${iconv.decode(data, "Shift_JIS")}`);
     mainWindow.webContents.send('return:Command', `[${getNow()}:FFmpeg]${iconv.decode(data, "Shift_JIS")}`);
   });
 
-  // エラー出力
+  // エラー出力リッスン
   process.stderr.on('data', (data) => {
     console.log(`[${getNow()}:FFmpeg]${iconv.decode(data, "Shift_JIS")}`);
     mainWindow.webContents.send('return:Command', `[${getNow()}:FFmpeg]${iconv.decode(data, "Shift_JIS")}`);
   });
 
-  // 終了時出力
+  // 終了時リッスン
   process.on('close', (code) => {
     // エラーハンドリング
     if (code != 0) {
@@ -106,7 +106,7 @@ function runFFmpeg(_event, args) {
     }
     console.log(`[${getNow()}:FFmpeg]child process exited with code ${code}`);
     mainWindow.webContents.send('return:Command', `[${getNow()}:FFmpeg]音声処理が完了しました`);
-    runWhisper(args)
+    runWhisper(args) // FFmpegの実行が完了時、Whisperを実行する
   });
 }
 

@@ -36,10 +36,10 @@
                 <div class="col">
                     <div class="form-floating">
                         <select class="form-select" aria-label="select-model-aria" id="select-model">
-                            <option value="1" selected>精度重視[経過表示なし]</option>
-                            <option value="2">最高精度[経過表示なし]</option>
-                            <option value="3" disabled>速度重視</option>
-                            <option value="5" disabled>精度重視</option>
+                            <option value="1" selected>速度重視[経過表示なし]</option>
+                            <option value="2">精度重視[経過表示なし]</option>
+                            <option value="3" disabled>速度重視[使用不可]</option>
+                            <option value="4" disabled>精度重視[使用不可]</option>
                         </select>
                         <label for="floadtingSelect">精度の選択</label>
                     </div>
@@ -49,7 +49,8 @@
                 <br>
 
                 <div class="col-md-12">
-                    <textarea readonly class="form-control bg-dark bg-gradient text-white" rows="8" id="output-textarea">文字起こしの出力が表示されます</textarea>
+                    <textarea readonly class="form-control bg-dark bg-gradient text-white" rows="8"
+                        id="output-textarea">文字起こしの出力が表示されます</textarea>
                 </div>
 
             </div>
@@ -71,8 +72,8 @@
 
                 <div class="col-md-3 d-grid gap-2 justify-content-md-end">
                     <button type="button" class="btn btn-outline-primary" id="file-select-button">ファイル選択</button>
-                    <button hidden type="button" class="btn btn-primary" id="run-button">コマンド実行</button>
                     <button type="button" class="btn btn-success" id="run-ffmpeg">スタート</button>
+                    <button hidden type="button" class="btn btn-danger" id="run-button">コマンド実行</button>
                 </div>
 
                 <div class="d-grid gap-2">

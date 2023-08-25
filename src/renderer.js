@@ -1,4 +1,4 @@
-//▼デバッグモード
+// デバッグモードの設定
 const debugButton = document.getElementById('debug-mode');
 const inputCommandValue = document.getElementById('input-command');
 const runButton = document.getElementById('run-button');
@@ -23,9 +23,8 @@ debugButton.addEventListener('click', () => {
     inputCommandValue.hidden = false;
     runButton.hidden = false;
 });
-//▲デバッグモード
 
-//▼デバッグ実行
+// デバッグ実行
 runButton.addEventListener('click', () => {
 
     // 実行結果を受け取る前に、テキストエリアを初期化する
@@ -43,26 +42,26 @@ runButton.addEventListener('click', () => {
         window.electronAPI.runCommand(command);
     }
 });
-//▲デバッグ実行
+// デバッグ関係===========================================================
 
-//▼共有セクション
-const outputTextareaElement = document.getElementById('output-textarea');
+// 共通要素
+const outputTextareaElement = document.getElementById('output-textarea'); // コンソール出力要素
 
-//▼ファイル選択セクション
-const fileSelectButton = document.getElementById('file-select-button');
-const filePathElement = document.getElementById('file-path');
+// ファイル選択要素
+const fileSelectButton = document.getElementById('file-select-button'); // ファイル選択ボタン要素
+const filePathElement = document.getElementById('file-path'); // ファイルパス表示欄要素
 
 // ファイル選択ダイアログを表示して、テキストボックスに保持
-fileSelectButton.addEventListener('click', async () => {
-    const filePath = await window.electronAPI.openFile();
+fileSelectButton.addEventListener('click', async () => { // ファイル選択ボタンクリックをリッスン
+    const filePath = await window.electronAPI.openFile(); // main.jsで処理
     if (filePath) {
         filePathElement.value = filePath;
     } else {
         return;
     }
 });
-filePathElement.addEventListener('click', async () => {
-    const filePath = await window.electronAPI.openFile();
+filePathElement.addEventListener('click', async () => { // ファイルパス表示欄クリックをリッスン
+    const filePath = await window.electronAPI.openFile(); // main.jsで処理
     if (filePath) {
         filePathElement.value = filePath;
     } else {
@@ -70,17 +69,17 @@ filePathElement.addEventListener('click', async () => {
     }
 });
 
-//▼コマンド実行セクション
-const selectModelElement = document.getElementById('select-model');
+// コマンド実行要素
+const selectModelElement = document.getElementById('select-model'); // 精度選択要素
 
 // FFmpeg&Whisperの実行
-const runFFmpeg = document.getElementById('run-ffmpeg');
-runFFmpeg.addEventListener('click', () => {
+const runFFmpeg = document.getElementById('run-ffmpeg'); // スタートボタン要素
+runFFmpeg.addEventListener('click', () => { // スタートボタンのクリックをリッスン
 
-    //▼前提条件確認
+    // 条件確認
     // ファイルの有無確認
     if (!filePathElement.value) {
-        alert('ファイルを選択してください');
+        alert('音声ファイルを選択してください');
         return;
     }
 
@@ -89,7 +88,8 @@ runFFmpeg.addEventListener('click', () => {
         alert('精度を選択してください')
         return;
     }
-    console.log(selectModelElement.value);
+
+    // console.log(selectModelElement.value); // コンソールに選択されたモデルを表示（デバッグ）
 
     // モデル選択の分岐
     const selectModel = (() => {
