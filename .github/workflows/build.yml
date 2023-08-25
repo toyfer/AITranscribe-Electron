@@ -1,4 +1,4 @@
-name: Build Electron Project for Windows
+name: Build AITranscribe-Electron for Windows
 
 on:
   # push:
