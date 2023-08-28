@@ -155,7 +155,7 @@ function runAdjustment(args) {
   });
 };
 
-// 時刻の取得
+// 時刻の取得関数
 function getNow(pathFlag = null) {
   const now = new Date();
 
