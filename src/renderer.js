@@ -46,16 +46,19 @@ runButton.addEventListener('click', () => {
 
 // 共通要素
 const outputTextareaElement = document.getElementById('output-textarea'); // コンソール出力要素
+var audioFile = new Audio();
 
 // ファイル選択要素
 const fileSelectButton = document.getElementById('file-select-button'); // ファイル選択ボタン要素
 const filePathElement = document.getElementById('file-path'); // ファイルパス表示欄要素
 
 // ファイル選択ダイアログを表示して、テキストボックスに保持
+// ファイルパスの保持と併せて、音声ファイルを読み込む
 fileSelectButton.addEventListener('click', async () => { // ファイル選択ボタンクリックをリッスン
     const filePath = await window.electronAPI.openFile(); // main.jsで処理
     if (filePath) {
         filePathElement.value = filePath;
+        audioFile.src = filePath;
     } else {
         return;
     }
@@ -64,6 +67,7 @@ filePathElement.addEventListener('click', async () => { // ファイルパス表
     const filePath = await window.electronAPI.openFile(); // main.jsで処理
     if (filePath) {
         filePathElement.value = filePath;
+        audioFile.src = filePath
     } else {
         return;
     }
