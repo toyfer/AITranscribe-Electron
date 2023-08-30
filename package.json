@@ -21,7 +21,7 @@
     "win": {
       "icon": "",
       "target": "zip",
-      "asar": "true"
+      "asar": "false"
     }
   },
   "author": "",
