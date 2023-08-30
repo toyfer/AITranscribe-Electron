@@ -1,4 +1,4 @@
-name: Build AITranscribe-Electron for Windows
+name: FullBuild AITranscribe-Electron for Windows
 
 on:
   # push:

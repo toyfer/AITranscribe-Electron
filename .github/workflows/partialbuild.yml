@@ -1,4 +1,4 @@
-name: Build AITranscribe-Electron for Windows
+name: PertialBuild AITranscribe-Electron for Windows
 
 on:
   # push:
