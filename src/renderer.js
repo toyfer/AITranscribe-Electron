@@ -75,7 +75,7 @@ filePathElement.addEventListener('click', async () => { // ファイルパス表
 
 // 読み込んだ音声ファイルの秒数を取得するリッスン
 audioFile.addEventListener('loadedmetadata', function() {
-    const duration = convertSecondsToHMS(audio.duration);
+    const duration = convertSecondsToHMS(audioFile.duration);
     console.log(duration);
 })
 
