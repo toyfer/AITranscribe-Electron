@@ -1,7 +1,7 @@
 name: FullBuild AITranscribe-Electron for Windows
 
 on:
-  push:
+  # push:
   workflow_dispatch:
 
 jobs:
