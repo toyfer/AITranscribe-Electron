@@ -38,4 +38,5 @@ with open(f"{file_path}.csv","w") as f:
         # 推論が重複している場合はCSVに記述しない
         if text_old != segments.text:
             f.write(f"{segments.id},{segments.start},{segments.end},{segments.text}\n")
+            print(f"[{segments.start}s --> {segments.end}s]:{segments.text}")
             text_old = segments.text
