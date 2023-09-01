@@ -79,7 +79,7 @@ audioFile.addEventListener('loadedmetadata', function () {
     console.log(duration); // デバッグ用としてコンソールに値を返す
 });
 
-// 秒数を時間に変換する関数
+// 秒数をhh:mm:ssに変換する関数
 function convertSecondsToHMS(seconds) {
     var hours = Math.floor(seconds / 3600);
     var minutes = Math.floor((seconds % 3600) / 60);
