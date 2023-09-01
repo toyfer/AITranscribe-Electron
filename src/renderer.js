@@ -74,23 +74,21 @@ filePathElement.addEventListener('click', async () => { // ファイルパス表
 });
 
 // 読み込んだ音声ファイルの秒数を取得するリッスン
-audioFile.addEventListener('loadedmetadata', function() {
-    const duration = convertSecondsToHMS(audioFile.duration);
-    console.log(duration);
-})
+audioFile.addEventListener('loadedmetadata', function () {
+    const duration = convertSecondsToHMS(audioFile.duration); // 取得した秒数をhh:mm:ss形式に変換する
+    console.log(duration); // デバッグ用としてコンソールに値を返す
+});
 
 // 秒数を時間に変換する関数
 function convertSecondsToHMS(seconds) {
     var hours = Math.floor(seconds / 3600);
     var minutes = Math.floor((seconds % 3600) / 60);
     var remainingSeconds = seconds % 60;
-  
     var formattedHours = hours < 10 ? "0" + hours : hours;
     var formattedMinutes = minutes < 10 ? "0" + minutes : minutes;
     var formattedSeconds = remainingSeconds < 10 ? "0" + remainingSeconds : remainingSeconds;
-  
     return formattedHours + ":" + formattedMinutes + ":" + formattedSeconds;
-  }
+}
 
 
 // コマンド実行要素
