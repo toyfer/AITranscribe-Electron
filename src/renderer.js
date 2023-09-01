@@ -150,16 +150,18 @@ function startProgress(Duration) {
 
     intervalId = setInterval(() => {
         progressBar.style.width = (eapsedTime / duration) * 100 + '%'; // プログレスバーの値を100%に設定
-        progressBar.innerText = (eapsedTime / duration) * 100 + '%'; // プログレスバーの値を100%に設定
-        progressBar.setAttribute('aria-valuenow', (eapsedTime / duration) * 100); // プログレスバーの値を100%に設定
+        progressBar.innerText = Math.floor((eapsedTime / duration) * 100 * 10) /10 + '%'; // プログレスバーの値を100%に設定
+        progressBar.setAttribute('aria-valuenow', Math.floor((eapsedTime / duration) * 100 * 10) /10); // プログレスバーの値を100%に設定
         progressBar.setAttribute('aria-valuemin', 0); // プログレスバーの値を0%に設定
         progressBar.setAttribute('aria-valuemax', 100); // プログレスバーの値を100%に設定
-        progressBar.setAttribute('style', 'width:'+ (eapsedTime / duration) * 100 + '%'); // プログレスバーの値を100%に設定
-        eapsedTime += 1;
+        progressBar.setAttribute('style', 'width:'+ Math.floor((eapsedTime / duration) * 100 * 10) /10 + '%'); // プログレスバーの値を100%に設定
+        
+        // TODO:残り時間をどこかに表示させる
+        eapsedTime += 1; // 1秒カウント
 
         if (eapsedTime >= duration) {
             clearInterval(intervalId); // 想定時間以上に更新しようとした場合は更新を停止する
-        }
+        };
     }, 1000);
 };
 
@@ -172,4 +174,4 @@ function endProgress(intervalId) {
         progressBar.setAttribute('aria-valuemin', 0); // プログレスバーの値を0%に設定
         progressBar.setAttribute('aria-valuemax', 100); // プログレスバーの値を100%に設定
         progressBar.setAttribute('style', 'width: 100%;'); // プログレスバーの値を100%に設定
-}
+};

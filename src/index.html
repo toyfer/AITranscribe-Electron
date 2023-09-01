@@ -33,6 +33,7 @@
         <div class="container">
             <div class="row">
 
+                <!-- Select Aria -->
                 <div class="col">
                     <div class="form-floating">
                         <select class="form-select" aria-label="select-model-aria" id="select-model">
@@ -48,9 +49,20 @@
 
                 <br>
 
+                <!-- Console Draw -->
                 <div class="col-md-12">
                     <textarea readonly class="form-control bg-dark bg-gradient text-white" rows="8"
                         id="output-textarea">文字起こしの出力が表示されます</textarea>
+                </div>
+
+                <br>
+
+                <!-- Progress Bar -->
+                <div class="col">
+                    <div class="progress" role="progressbar" aria-label="progressbar-aria" aria-valuenow="0"
+                        aria-valuemin="0" aira-value="100">
+                        <div class="progress-bar bg-success" id="progress-bar"></div>
+                    </div>
                 </div>
 
             </div>
@@ -79,13 +91,6 @@
                 <div class="d-grid gap-2">
                     <br><button hidden type="button" class="btn btn-dark" id="debug-mode">デバッグ</button>
                     <a class="btn btn-secondary" href="./Transcribe-Suppoter/Suppoter.html">文字起こしサポーターを起動</a>
-                </div>
-
-                <!-- Progress Bar -->
-                <div class="col">
-                    <div class="progress" role="progressbar" aria-label="progressbar-aria" aria-valuenow="0" aria-valuemin="0" aira-value="100">
-                        <div class="progress-bar bg-success" id="progress-bar"></div>
-                    </div>
                 </div>
 
             </div>
