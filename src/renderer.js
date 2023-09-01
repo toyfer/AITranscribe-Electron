@@ -3,6 +3,8 @@
 // 共通要素
 const outputTextareaElement = document.getElementById('output-textarea'); // コンソール出力要素
 var audioFile = new Audio(); // オーディオファイルの読み込み
+var audioDuration = 0; // オーディオファイルの秒数
+var intervalId; //
 
 // ファイル選択要素
 const fileSelectButton = document.getElementById('file-select-button'); // ファイル選択ボタン要素
@@ -31,18 +33,18 @@ filePathElement.addEventListener('click', async () => { // ファイルパス表
 
 // 読み込んだ音声ファイルの秒数を取得するリッスン
 audioFile.addEventListener('loadedmetadata', function () {
-    const duration = convertSecondsToHMS(audioFile.duration); // 取得した秒数をhh:mm:ss形式に変換してdurationに格納する
-    console.log(duration); // デバッグ用としてコンソールに値を返す
+    console.log(this.duration); // デバッグ用としてコンソールに値を返す
+    audioDuration = this.duration; // 読み込んだ音声ファイルの秒数を代入
 });
 
 // 秒数をhh:mm:ssに変換する関数
 function convertSecondsToHMS(seconds) {
-    var hours = Math.floor(seconds / 3600);
-    var minutes = Math.floor((seconds % 3600) / 60);
-    var remainingSeconds = seconds % 60;
-    var formattedHours = hours < 10 ? "0" + hours : hours;
-    var formattedMinutes = minutes < 10 ? "0" + minutes : minutes;
-    var formattedSeconds = remainingSeconds < 10 ? "0" + remainingSeconds : remainingSeconds;
+    let hours = Math.floor(seconds / 3600);
+    let minutes = Math.floor((seconds % 3600) / 60);
+    let remainingSeconds = seconds % 60;
+    let formattedHours = hours < 10 ? "0" + hours : hours;
+    let formattedMinutes = minutes < 10 ? "0" + minutes : minutes;
+    let formattedSeconds = remainingSeconds < 10 ? "0" + remainingSeconds : remainingSeconds;
     return formattedHours + ":" + formattedMinutes + ":" + formattedSeconds;
 }
 
@@ -70,14 +72,17 @@ runFFmpeg.addEventListener('click', () => { // スタートボタンのクリッ
     // console.log(selectModelElement.value); // コンソールに選択されたモデルを表示（デバッグ）
 
     // モデル選択の分岐
+    // 併せて予想の秒数も計算する
     const selectModel = (() => {
         switch (selectModelElement.value) {
             case '1':
+                audioDuration = audioDuration * 0.7;
                 return {
                     model: 'Whisper\\models\\small',
                     script: 'Whisper\\Faster-Whisper.py'
                 };
             case "2":
+                audioDuration = audioDuration * 1.2;
                 return {
                     model: 'Whisper\\models\\medium',
                     script: 'Whisper\\Faster-Whisper.py'
@@ -98,6 +103,9 @@ runFFmpeg.addEventListener('click', () => { // スタートボタンのクリッ
     filePathElement.disabled = true;
     fileSelectButton.disabled = true;
     selectModelElement.disabled = true;
+
+    // プログレスバーの開始
+    startProgress(audioDuration);
 
     // メインプロセスの実行
     window.electronAPI.runFFmpeg([FFmpegArgs, WhisperArgs]);
@@ -122,4 +130,46 @@ window.electronAPI.processMassage((_event, massage) => {
     filePathElement.disabled = false;
     fileSelectButton.disabled = false;
     selectModelElement.disabled = false;
+
+    // プログレスバーの終了
+    endProgress(intervalId);
 });
+
+
+// プログレスバーの開始
+function startProgress(Duration) {
+    const progressBar = document.getElementById('progress-bar'); // プログレスバー要素
+    const duration = Duration; // オーディオファイルのタイムを取得
+    let eapsedTime = 0; // 処理中の時間
+    progressBar.style.width = '0%'; // プログレスバーの値を0%に設定
+    progressBar.innerText = '0%'; // プログレスバーの値を0%に設定
+    progressBar.setAttribute('aria-valuenow', 0); // プログレスバーの値を0%に設定
+    progressBar.setAttribute('aria-valuemin', 0); // プログレスバーの値を0%に設定
+    progressBar.setAttribute('aria-valuemax', 100); // プログレスバーの値を100%に設定
+    progressBar.setAttribute('style', 'width: 0%;'); // プログレスバーの値を0%に設定
+
+    intervalId = setInterval(() => {
+        progressBar.style.width = (eapsedTime / duration) * 100 + '%'; // プログレスバーの値を100%に設定
+        progressBar.innerText = (eapsedTime / duration) * 100 + '%'; // プログレスバーの値を100%に設定
+        progressBar.setAttribute('aria-valuenow', (eapsedTime / duration) * 100); // プログレスバーの値を100%に設定
+        progressBar.setAttribute('aria-valuemin', 0); // プログレスバーの値を0%に設定
+        progressBar.setAttribute('aria-valuemax', 100); // プログレスバーの値を100%に設定
+        progressBar.setAttribute('style', 'width:'+ (eapsedTime / duration) * 100 + '%'); // プログレスバーの値を100%に設定
+        eapsedTime += 1;
+
+        if (eapsedTime >= duration) {
+            clearInterval(intervalId); // 想定時間以上に更新しようとした場合は更新を停止する
+        }
+    }, 1000);
+};
+
+// プログレスバーの終了
+function endProgress(intervalId) {
+    clearInterval(intervalId); // インターバルを終了する
+    progressBar.style.width = '100%'; // プログレスバーの値を100%に設定
+        progressBar.innerText = '完了しました'; // プログレスバーの値を100%に設定
+        progressBar.setAttribute('aria-valuenow', 100); // プログレスバーの値を100%に設定
+        progressBar.setAttribute('aria-valuemin', 0); // プログレスバーの値を0%に設定
+        progressBar.setAttribute('aria-valuemax', 100); // プログレスバーの値を100%に設定
+        progressBar.setAttribute('style', 'width: 100%;'); // プログレスバーの値を100%に設定
+}
