@@ -1,8 +1,6 @@
 from faster_whisper import WhisperModel
 import logging
 import sys
-import os
-import glob
 import datetime
 
 # 実行時間の計測をスタートします

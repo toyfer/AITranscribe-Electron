@@ -1,52 +1,8 @@
-// デバッグモードの設定
-const debugButton = document.getElementById('debug-mode');
-const inputCommandValue = document.getElementById('input-command');
-const runButton = document.getElementById('run-button');
-const titleLabel = document.getElementById('title-label');
-var debugCount = 0;
-
-titleLabel.addEventListener('click', () => {
-    debugCount += 1;
-    if (debugCount == 10) {
-        const debugMode = confirm('デバッグモードを有効にしますか');
-        if (debugMode == true) {
-            debugButton.hidden = false;
-        } else {
-            return;
-        }
-    } else {
-        return;
-    }
-});
-
-debugButton.addEventListener('click', () => {
-    inputCommandValue.hidden = false;
-    runButton.hidden = false;
-});
-
-// デバッグ実行
-runButton.addEventListener('click', () => {
-
-    // 実行結果を受け取る前に、テキストエリアを初期化する
-    outputTextareaElement.value = null;
-
-    // コマンドの取得
-    const command = inputCommandValue.value.trim();
-
-    // コマンドが入力されていない場合は、アラートを出力して終了する
-    if (command === '') {
-        alert('コマンドを入力してください');
-        return;
-    } else {
-        // メインプロセスでコマンドを実行する
-        window.electronAPI.runCommand(command);
-    }
-});
-// デバッグ関係===========================================================
+// TODO:関数と手続き型の処理の整理を行う
 
 // 共通要素
 const outputTextareaElement = document.getElementById('output-textarea'); // コンソール出力要素
-var audioFile = new Audio();
+var audioFile = new Audio(); // オーディオファイルの読み込み
 
 // ファイル選択要素
 const fileSelectButton = document.getElementById('file-select-button'); // ファイル選択ボタン要素
@@ -75,7 +31,7 @@ filePathElement.addEventListener('click', async () => { // ファイルパス表
 
 // 読み込んだ音声ファイルの秒数を取得するリッスン
 audioFile.addEventListener('loadedmetadata', function () {
-    const duration = convertSecondsToHMS(audioFile.duration); // 取得した秒数をhh:mm:ss形式に変換する
+    const duration = convertSecondsToHMS(audioFile.duration); // 取得した秒数をhh:mm:ss形式に変換してdurationに格納する
     console.log(duration); // デバッグ用としてコンソールに値を返す
 });
 
