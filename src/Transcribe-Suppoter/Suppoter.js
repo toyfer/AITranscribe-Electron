@@ -11,8 +11,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // CSVファイルを読み込んだ時に実行
     async function handleCSVFile(e) {
         const file = e.target.files[0];
-        // Shift_JISをデフォルトで想定
-        const text = await readFileAsText(file, 'Shift_JIS');
+        // UTF-8をデフォルトで想定
+        const text = await readFileAsText(file);
 
         const lines = text.split('\n');
         const filteredLines = lines.filter(Boolean);
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ファイルをテキストとして読み込む関数
-    function readFileAsText(file, encoding) {
+    function readFileAsText(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
 
@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 reject(e);
             };
 
-            reader.readAsText(file, encoding); // ファイルを指定したエンコーディングで読み込む
+            reader.readAsText(file); // ファイルを指定したエンコーディングで読み込む
         });
     }
 });

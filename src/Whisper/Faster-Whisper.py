@@ -26,7 +26,7 @@ result, _ = model.transcribe(
     )
 
 # 推論の結果を格納してファイルに出力
-with open(f"{file_path}.csv","w") as f:
+with open(f"{file_path}.csv", "w", encoding="utf-8_sig") as f:
     f.write("point,start,end,text\n")
 
     text_old = ""
