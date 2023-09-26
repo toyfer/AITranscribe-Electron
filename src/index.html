@@ -38,9 +38,7 @@
                     <div class="form-floating">
                         <select class="form-select" aria-label="select-model-aria" id="select-model">
                             <option value="1" selected>速度重視[0.7倍速]</option>
-                            <option value="2">精度重視[1.2倍速]</option>
-                            <option value="3" disabled>旧速度重視[使用不可]</option>
-                            <option value="4" disabled>旧精度重視[使用不可]</option>
+                            <option value="2">精度重視[1.3倍速]</option>
                         </select>
                         <label for="floadtingSelect">精度の選択</label>
                     </div>
@@ -58,9 +56,9 @@
                 <br>
 
                 <!-- Progress Bar -->
-                <div class="col">
-                    <div class="progress" role="progressbar" aria-label="progressbar-aria" aria-valuenow="0"
-                        aria-valuemin="0" aira-value="100">
+                <div class="col-md-12">
+                    <div hidden class="progress" role="progressbar" aria-label="progressbar-aria" aria-valuenow="0"
+                        aria-valuemin="0" aira-value="100" id="progress">
                         <div class="progress-bar bg-success" id="progress-bar"></div>
                     </div>
                 </div>

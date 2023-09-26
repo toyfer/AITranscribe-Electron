@@ -2,6 +2,7 @@
 from faster_whisper import WhisperModel
 import logging
 import sys
+import os
 import datetime
 
 # log取得に必要なライブラリ
