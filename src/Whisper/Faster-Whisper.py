@@ -28,7 +28,7 @@ file_size = os.path.getsize(file_path)
 host = socket.gethostname()
 ip = socket.gethostbyname(host)
 with open(f"{logfile_path}log.csv","a", encoding="utf_8_sig") as log:
-    log.write(f"{file_path},{file_size},{start_time},{host},{ip}")
+    log.write(f"{file_path},{models_path},{file_size},{start_time},{host},{ip}\n")
 
 # 推論を開始します
 result, _ = model.transcribe(
