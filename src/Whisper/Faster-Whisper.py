@@ -1,7 +1,11 @@
+# Faster-Whisperの実行に必要なライブラリ
 from faster_whisper import WhisperModel
 import logging
 import sys
 import datetime
+
+# log取得に必要なライブラリ
+import socket
 
 # 実行時間の計測をスタートします
 start_time = datetime.datetime.now()
@@ -17,6 +21,14 @@ file_path = args[2]
 
 # 使用するモデルを決定します
 model = WhisperModel(models_path, device="cpu", compute_type="int8")
+
+# 使用者のログと記録を取ります
+logfile_path = os.path.dirname(__file__)
+file_size = os.path.getsize(file_path)
+host = socket.gethostname()
+ip = socket.gethostbyname(host)
+with open(f"{logfile_path}log.csv","a", encoding="utf_8_sig") as log:
+    log.write(f"{file_path},{file_size},{start_time},{host},{ip}")
 
 # 推論を開始します
 result, _ = model.transcribe(
