@@ -1,0 +1,54 @@
+name: FullBuild AITranscribe-Electron for Windows
+
+on:
+  # push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Install Node.js dependencies
+        run: npm install
+
+      - name: FFmpeg Download
+        run: Invoke-WebRequest -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -Outfile FFmpeg.zip 
+
+      - name: Python Embeddable Download
+        run: Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
+
+      - name: Whisper Models Download
+        run: |
+          git clone https://huggingface.co/guillaumekln/faster-whisper-small .\src\Whisper\models\small\
+          git clone https://huggingface.co/guillaumekln/faster-whisper-medium .\src\Whisper\models\medium\
+
+      - name: Setup FFmpeg Python dependencies
+        run: |
+          Expand-Archive .\FFmpeg.zip .\
+          Copy-Item -path .\ffmpeg-master-latest-win64-lgpl\bin\ffmpeg.exe .\src\Whisper\
+          Expand-Archive .\Python.zip -DestinationPath .\src\Whisper
+          (Get-Content .\src\Whisper\Python311._pth) -replace '#import site', 'import site' | Set-Content .\src\Whisper\Python311._pth
+          Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -Outfile .\src\Whisper\get-pip.py
+          .\src\Whisper\Python.exe .\src\Whisper\get-pip.py
+          .\src\Whisper\Python.exe -m pip install -U pip
+          .\src\Whisper\Python.exe -m pip install --force-reinstall "faster-whisper @ https://github.com/guillaumekln/faster-whisper/archive/refs/heads/master.tar.gz"
+
+
+      - name: Build Electron project for Windows
+        run: npm run build_win
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: AITranscribe-Electron
+          path: build/*.zip
+          #path: build/win-unpacked/
