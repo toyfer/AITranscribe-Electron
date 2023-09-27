@@ -1,7 +1,6 @@
 name: PertialBuild AITranscribe-Electron for Windows
 
 on:
-  push:
   workflow_dispatch:
 
 jobs:
