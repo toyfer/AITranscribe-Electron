@@ -1,6 +1,7 @@
 name: Update_package-lock.json
 
 on:
+  push:
   workflow_dispatch:
 
 jobs:
