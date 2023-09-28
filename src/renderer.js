@@ -4,7 +4,7 @@
 const outputTextareaElement = document.getElementById('output-textarea'); // コンソール出力要素
 var audioFile = new Audio(); // オーディオファイルの読み込み
 var audioDuration = 0; // オーディオファイルの秒数
-var intervalId; //
+var intervalId; // インターバルタイマー
 
 // ファイル選択要素
 const fileSelectButton = document.getElementById('file-select-button'); // ファイル選択ボタン要素

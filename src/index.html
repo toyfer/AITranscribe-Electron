@@ -76,18 +76,14 @@
                 <!-- User Interface -->
                 <div class="col-md-9 d-grid gap-2">
                     <input readonly type="text" class="form-control" id="file-path" placeholder="ファイルを選択してください"></input>
-                    <input hidden type="text" class="form-control" id="input-command"
-                        placeholder="Please enter the command..."></input>
                 </div>
 
                 <div class="col-md-3 d-grid gap-2 justify-content-md-end">
                     <button type="button" class="btn btn-outline-primary" id="file-select-button">ファイル選択</button>
                     <button type="button" class="btn btn-success" id="run-ffmpeg">スタート</button>
-                    <button hidden type="button" class="btn btn-danger" id="run-button">コマンド実行</button>
                 </div>
 
                 <div class="d-grid gap-2">
-                    <br><button hidden type="button" class="btn btn-dark" id="debug-mode">デバッグ</button>
                     <a class="btn btn-secondary" href="./Transcribe-Suppoter/Suppoter.html">文字起こしサポーターを起動</a>
                 </div>
 
@@ -97,7 +93,7 @@
 
     <!-- Electron Renderer -->
     <script src="./renderer.js"></script>
-    
+
     <!-- Bootstrap JS -->
     <script src="./js/bootstrap.bundle.min.js"></script>
 
