@@ -1,6 +1,6 @@
 {
   "name": "AITranscribe-Electron",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "AIで文字起こしを行うためのソフトウェアです",
   "main": "./src/main.js",
   "scripts": {
@@ -32,6 +32,5 @@
     "electron-builder": "*"
   },
   "dependencies": {
-    "iconv-lite": "*"
   }
 }

@@ -5,6 +5,9 @@ import sys
 import os
 import datetime
 
+# 標準出力のエンコードを変更します
+sys.stdout.reconfigure(encoding='utf-8')
+
 # log取得に必要なライブラリ
 import socket
 
