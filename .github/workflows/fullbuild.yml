@@ -50,5 +50,6 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: AITranscribe-Electron
-          path: build/*.zip
-          #path: build/win-unpacked/
+          path: | 
+            build/*.zip
+            package-lock.json
