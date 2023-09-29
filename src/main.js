@@ -21,7 +21,7 @@ function createWindow() {
 
     // 開発者ツールを開く（オプション）
     // mainWindow.webContents.openDevTools();
-}
+};
 
 // アプリケーションの準備が完了したらウィンドウを作成
 app.whenReady().then(() => {
@@ -56,8 +56,8 @@ async function handleFileOpen() {
 // 文字起こし開始
 // 共通の変数を宣言
 const tempDir = os.tmpdir(); // 一時ディレクトリのパスを取得
-const tempWAV = `${tempDir}\\${generateRandomString(10)}.wav` // FFmpegで出力されるWAVファイルのパスを定義
-const tempCSV = `${tempWAV}.csv` // Whisperで出力されるCSVファイルのパスを定義
+const tempWAV = path.join(tempDir, `${generateRandomString(10)}.wav`); // FFmpegで出力されるWAVファイルのパスを定義
+const tempCSV = `${tempWAV}.csv`; // Whisperで出力されるCSVファイルのパスを定義
 
 // FFmpegの実行
 function runFFmpeg(_event, args) {
@@ -117,7 +117,9 @@ function runWhisper(args) {
         }
         console.log(`[${getNow()}:Whisper]child process exited with code ${code}`);
         mainWindow.webContents.send('return:Command', `[${getNow()}:Whisper]文字起こしが完了しました`);
-        fs.unlinckSync(tempWAV);
+        if (fs.existsSync(tempWAV)) {
+            fs.unlinkSync(tempWAV);
+        }
         runAdjustment(args);
     });
 }
@@ -129,9 +131,14 @@ function runAdjustment(args) {
     fs.copyFile(tempCSV, outFile, (err) => {
         if (err) {
             mainWindow.webContents.send('process:Massage', `[${getNow()}:System]${err}`)
-            return;
+            if (fs.existsSync(tempWAV)) {
+                fs.unlinkSync(tempWAV);
+            }
         } else {
             mainWindow.webContents.send('process:Massage', `[${getNow()}:System]文字起こしが完了しました`);
+            if (fs.existsSync(tempWAV)) {
+                fs.unlinkSync(tempWAV);
+            }
             return
         }
     });
