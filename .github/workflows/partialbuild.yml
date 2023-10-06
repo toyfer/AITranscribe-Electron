@@ -43,6 +43,8 @@ jobs:
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: AITranscribe-Electron
-          path: build/*.zip
-          #path: build/win-unpacked/
+          name: AITranscribe-Electron_Partial
+          path: |
+            build/win-unpacked/
+            package-lock.json
+            !build/win-unpacked/resorces/src/Whisper/models
