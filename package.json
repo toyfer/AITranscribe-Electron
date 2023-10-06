@@ -30,5 +30,7 @@
     "@electron/asar": "*",
     "electron": "*",
     "electron-builder": "*"
+  },
+  "dependencies": {
   }
 }

@@ -2,7 +2,7 @@ name: FullBuild AITranscribe-Electron for Windows
 
 on:
   # push:
-  workflow_dispatch:
+    workflow_dispatch:
 
 jobs:
   build:
@@ -10,7 +10,7 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -18,7 +18,9 @@ jobs:
           node-version: 20.6
 
       - name: Install Node.js dependencies
-        run: npm install
+        run: |
+          npm install
+          npm audit fix
 
       - name: FFmpeg Download
         run: Invoke-WebRequest -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -Outfile FFmpeg.zip 
