@@ -7,7 +7,7 @@ const fs = require("fs");
 // 描写・プリロード関数
 function createWindow() {
   // ブラウザウィンドウを作成
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
     },
