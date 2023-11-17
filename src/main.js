@@ -7,7 +7,7 @@ const fs = require("fs");
 // 描写・プリロード関数
 function createWindow() {
   // ブラウザウィンドウを作成
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
     },
@@ -143,7 +143,7 @@ function runWhisper(args) {
         "process:Massage",
         `[${getNow()}:Whisper]エラーが発生しました\n errorcode:${code}`
       );
-      fs.unlinckSync(tempWAV); // 一時ファイルを削除
+      fs.unlinkSync(tempWAV); // 一時ファイルを削除
       return;
     }
     console.log(`[${getNow()}:Whisper]child process exited with code ${code}`);

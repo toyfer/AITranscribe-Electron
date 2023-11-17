@@ -38,7 +38,7 @@ audioFile.addEventListener('loadedmetadata', function () {
 });
 
 // 秒数をhh:mm:ssに変換する関数
-function convertSecondsToHMS(seconds) {
+function formatTime(seconds) {
     let hours = Math.floor(seconds / 3600);
     let minutes = Math.floor((seconds % 3600) / 60);
     let remainingSeconds = seconds % 60;
