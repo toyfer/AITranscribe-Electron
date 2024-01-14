@@ -5,6 +5,7 @@ const outputTextareaElement = document.getElementById('output-textarea'); // コ
 var audioFile = new Audio(); // オーディオファイルのオブジェクト
 var audioDuration = 0; // オーディオファイルの秒数初期値
 var intervalId; // インターバルタイマー
+var progressBar = new ProgressBar();
 
 // ファイル選択要素
 const fileSelectButton = document.getElementById('file-select-button'); // ファイル選択ボタン要素
@@ -98,8 +99,7 @@ runFFmpeg.addEventListener('click', () => { // スタートボタンのクリッ
     fileSelectButton.disabled = true;
     selectModelElement.disabled = true;
 
-    // プログレスバーの開始
-    startProgress(audioDuration);
+    progressBar.startProgress(audioDuration);
 
     // メインプロセスの実行
     window.electronAPI.runFFmpeg([FFmpegArgs, WhisperArgs]);
@@ -126,61 +126,5 @@ window.electronAPI.processMassage((event, massage) => {
     selectModelElement.disabled = false;
 
     // プログレスバーの終了
-    endProgress(intervalId);
+    progressBar.endProgress(intervalId);
 });
-
-
-// プログレスバーの開始
-function startProgress(Duration) {
-    const progressBar = document.getElementById('progress-bar'); // プログレスバー要素の取得
-    const progress = document.getElementById('progress'); // プログレスグループ要素の取得
-    // プログレスバーの初期化
-    progress.hidden = false; // プログレスバーを表示する
-    const duration = Duration; // オーディオファイルのタイムを取得
-    let eapsedTime = 0; // 処理中の時間
-    progressBar.style.width = '0%'; // プログレスバーの値を0%に設定
-    progressBar.innerText = '0%'; // プログレスバーの値を0%に設定
-    progressBar.setAttribute('class', 'progress-bar bg-success')
-    progressBar.setAttribute('aria-valuenow', 0); // プログレスバーの値を0%に設定
-    progressBar.setAttribute('aria-valuemin', 0); // プログレスバーの値を0%に設定
-    progressBar.setAttribute('aria-valuemax', 100); // プログレスバーの値を100%に設定
-    progressBar.setAttribute('style', 'width: 0%;'); // プログレスバーの値を0%に設定
-
-    // プログレスバーのタイマー開始
-    intervalId = setInterval(() => {
-        progressBar.style.width = (eapsedTime / duration) * 100 + '%'; // プログレスバーの値を100%に設定
-        progressBar.innerText = Math.floor((eapsedTime / duration) * 100 * 10) / 10 + '%'; // プログレスバーの値を100%に設定
-        progressBar.setAttribute('aria-valuenow', Math.floor((eapsedTime / duration) * 100 * 10) / 10); // プログレスバーの値を100%に設定
-        progressBar.setAttribute('aria-valuemin', 0); // プログレスバーの値を0%に設定
-        progressBar.setAttribute('aria-valuemax', 100); // プログレスバーの値を100%に設定
-        progressBar.setAttribute('style', 'width:' + Math.floor((eapsedTime / duration) * 100 * 10) / 10 + '%'); // プログレスバーの値を100%に設定
-
-        // TODO:残り時間をどこかに表示させる
-        eapsedTime += 1; // 1秒カウント
-
-        // プログレスバーが想定時間より先に100%に到達するときの処理
-        if (eapsedTime >= duration) {
-            progressBar.style.width = '100%'; // プログレスバーの値を100%に設定
-            progressBar.innerText = 'もう少しで完了します...'; // プログレスバー内に案内を表示
-            progressBar.setAttribute('class', 'progress-bar progress-bar-striped progress-bar-animated') // プログレスバーの表示をストライプに変更
-            progressBar.setAttribute('aria-valuenow', 100); // プログレスバーの値を100%に設定
-            progressBar.setAttribute('aria-valuemin', 0); // プログレスバーの値の最小値を0%に設定
-            progressBar.setAttribute('aria-valuemax', 100); // プログレスバーの値の最大値を100%に設定
-            progressBar.setAttribute('style', 'width: 100%'); // プログレスバーの値を100%に設定
-            clearInterval(intervalId); // 想定時間以上に更新しようとした場合は更新を停止する
-        };
-    }, 1000);
-};
-
-// プログレスバーの終了(プロセス終了時に呼び出される)
-function endProgress(intervalId) {
-    const progressBar = document.getElementById('progress-bar')
-    progressBar.style.width = '100%'; // プログレスバーの値を100%に設定
-    progressBar.innerText = '完了しました!'; // プログレスバーの値を100%に設定
-    progressBar.setAttribute('class', 'progress-bar') // プログレスバーを通常食に変更
-    progressBar.setAttribute('aria-valuenow', 100); // プログレスバーの値を100%に設定
-    progressBar.setAttribute('aria-valuemin', 0); // プログレスバーの値を0%に設定
-    progressBar.setAttribute('aria-valuemax', 100); // プログレスバーの値を100%に設定
-    progressBar.setAttribute('style', 'width: 100%;'); // プログレスバーの値を100%に設定
-    clearInterval(intervalId); // インターバルを終了する
-};

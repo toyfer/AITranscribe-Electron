@@ -2,7 +2,8 @@ class ProgressBar {
     constructor() {
         this.progressBar = document.getElementById('progress-bar');
         this.progress = document.getElementById('progress');
-        this.duration = null;
+        this.progress.hidden = true;
+        this.duration = 0;
         this.elapsedTime = 0;
         this.intervalId = null;
     }
