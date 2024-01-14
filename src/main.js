@@ -21,13 +21,10 @@ function createWindow() {
 // アプリケーションの準備が完了したらウィンドウを作成
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null); // デフォルトのメニューを非表示
-  ipcMain.handle("dialog:openFile", handleFileOpen); // ファイル選択のリッスン
-  ipcMain.on("execute:runFFmpeg", runFFmpeg); // FFmpeg用リッスン
-  ipcMain.on("execute:runWhisper", runWhisper); // Whisper用リッスン（使わない）
+  ipcMain.handle("dialog:openFile", handleFileOpen); // ファイル選択のIPCリッスン
+  ipcMain.on("execute:runFFmpeg", runFFmpeg); // FFmpeg用のIPCリッスン
+  ipcMain.on("execute:runWhisper", runWhisper); // Whisper用のIPCリッスン（使わない）
   createWindow(); // ウィンドウ作成
-  app.on("activate", function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
   mainWindow.webContents.send(
     "process:Massage",
     `[${getNow()}:System]システムを起動しました`
