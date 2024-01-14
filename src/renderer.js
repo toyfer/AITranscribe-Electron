@@ -10,6 +10,19 @@ var intervalId; // インターバルタイマー
 const fileSelectButton = document.getElementById('file-select-button'); // ファイル選択ボタン要素
 const filePathElement = document.getElementById('file-path'); // ファイルパス表示欄要素
 
+// ファイルのパス取得関数
+async function getAudioFilePath(inputFilePathElement) {
+    const filePath = await window.electronAPI.openFile();
+    if (filePath) {
+        inputFilePathElement.value = filePath;
+        audioFile.src = filePath;
+    } else {
+        return;
+    }
+}
+
+fileSelectButton.addEventListener('click', () => getAudioFilePath(this));
+filePathElement.addEventListener('click', () => getAudioFilePath(this));
 // ファイル選択ダイアログを表示して、テキストボックスに保持
 // ファイルパスの保持と併せて、音声ファイルを読み込む
 fileSelectButton.addEventListener('click', async () => { // ファイル選択ボタンクリックをリッスン
@@ -112,14 +125,14 @@ runFFmpeg.addEventListener('click', () => { // スタートボタンのクリッ
 });
 
 // メインプロセスの標準出力を受け取る
-window.electronAPI.returnCommand((_event, output) => {
+window.electronAPI.returnCommand((event, output) => {
     console.log(output);
     outputTextareaElement.value += output;
     outputTextareaElement.scrollTop = outputTextareaElement.scrollHeight;
 });
 
 // メインプロセスの開始・終了通知を受け取る
-window.electronAPI.processMassage((_event, massage) => {
+window.electronAPI.processMassage((event, massage) => {
     const notificationTitle = 'Ai文字起こし';
     const notificationBody = massage;
     new Notification(notificationTitle, { body: notificationBody });
