@@ -57,7 +57,7 @@ const tempCSV = `${tempWAV}.csv`; // Whisperで出力されるCSVファイルの
 function runFFmpeg(_event, args) {
   const FFmpegArgs = `${path.join(__dirname, "Whisper\\ffmpeg.exe")} -y -i ${args[0]
     } -ar 16000 ${tempWAV}`;
-  const process = spawn(`chcp 65001 && ${FFmpegArgs}`, [], {
+  const process = spawn(`chcp 65001 > nul && ${FFmpegArgs}`, [], {
     shell: true,
     windowsVerbatimArguments: true,
   });
@@ -109,7 +109,7 @@ function runWhisper(args) {
     __dirname,
     args[1].model
   )} ${tempWAV}`;
-  const process = spawn(`chcp 65001 && ${WhisperArgs}`, [], {
+  const process = spawn(`chcp 65001 > nul && ${WhisperArgs}`, [], {
     shell: true,
     windowsVerbatimArguments: true,
   });
@@ -182,7 +182,7 @@ function runAdjustment(args) {
 }
 
 // 時刻の取得関数
-function getNow(pathFlag = null) {
+function getNow(pathFlag = false) {
   const now = new Date();
 
   const year = now.getFullYear();
@@ -192,18 +192,20 @@ function getNow(pathFlag = null) {
   const min = now.getMinutes();
   const sec = now.getSeconds();
 
-  if (!pathFlag) {
+  if (!pathFlag) {65001
     return `${year}/${month}/${date}_${hour}:${min}:${sec}`;
   } else {
     return `${year}-${month}-${date}_${hour}-${min}-${sec}`;
   }
 }
 
-// ランダム文字列を生成する関数（一時ファイル用）
+// 引数で指定されて文字数分ランダム文字列を生成して返す関数（一時ファイル用）
 function generateRandomString(length) {
-  return [
-    ...Array(length)
-      .map(() => Math.random().toString(36)[2])
-      .join(""),
-  ];
+  let result = '';
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const charactersLength = characters.length;
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
 }

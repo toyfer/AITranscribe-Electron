@@ -2,8 +2,8 @@
 
 // 共通要素
 const outputTextareaElement = document.getElementById('output-textarea'); // コンソール出力要素
-var audioFile = new Audio(); // オーディオファイルの読み込み
-var audioDuration = 0; // オーディオファイルの秒数
+var audioFile = new Audio(); // オーディオファイルのオブジェクト
+var audioDuration = 0; // オーディオファイルの秒数初期値
 var intervalId; // インターバルタイマー
 
 // ファイル選択要素
@@ -21,31 +21,13 @@ async function getAudioFilePath(inputFilePathElement) {
     }
 }
 
-fileSelectButton.addEventListener('click', () => getAudioFilePath(this));
-filePathElement.addEventListener('click', () => getAudioFilePath(this));
-// ファイル選択ダイアログを表示して、テキストボックスに保持
-// ファイルパスの保持と併せて、音声ファイルを読み込む
-fileSelectButton.addEventListener('click', async () => { // ファイル選択ボタンクリックをリッスン
-    const filePath = await window.electronAPI.openFile(); // main.jsで処理
-    if (filePath) {
-        filePathElement.value = filePath;
-        audioFile.src = filePath;
-    } else {
-        return;
-    }
-});
-filePathElement.addEventListener('click', async () => { // ファイルパス表示欄クリックをリッスン
-    const filePath = await window.electronAPI.openFile(); // main.jsで処理
-    if (filePath) {
-        filePathElement.value = filePath;
-        audioFile.src = filePath
-    } else {
-        return;
-    }
-});
+// ファイル選択ボタンクリックをリッスン
+fileSelectButton.addEventListener('click', () => getAudioFilePath(fileSelectButton));
+// ファイルパス表示欄クリックをリッスン
+filePathElement.addEventListener('click', () => getAudioFilePath(filePathElement));
 
 // 読み込んだ音声ファイルの秒数を取得するリッスン
-audioFile.addEventListener('loadedmetadata', function () {
+audioFile.addEventListener('loadedmetadata', () => {
     console.log(this.duration); // デバッグ用としてコンソールに値を返す
     audioDuration = this.duration; // 読み込んだ音声ファイルの秒数を代入
 });
@@ -60,7 +42,6 @@ function formatTime(seconds) {
     let formattedSeconds = remainingSeconds < 10 ? "0" + remainingSeconds : remainingSeconds;
     return formattedHours + ":" + formattedMinutes + ":" + formattedSeconds;
 }
-
 
 // コマンド実行要素
 const selectModelElement = document.getElementById('select-model'); // 精度選択要素
