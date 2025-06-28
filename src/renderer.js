@@ -140,8 +140,12 @@ window.electronAPI.processMassage((_event, massage) => {
 function startProgress(Duration) {
     const progressBar = document.getElementById('progress-bar'); // プログレスバー要素の取得
     const progress = document.getElementById('progress'); // プログレスグループ要素の取得
+    const remainingTimeDisplay = document.getElementById('remaining-time-display'); // 残り時間表示要素の取得
+    const remainingTimeSpan = document.getElementById('remaining-time'); // 残り時間テキスト要素の取得
+    
     // プログレスバーの初期化
     progress.hidden = false; // プログレスバーを表示する
+    remainingTimeDisplay.hidden = false; // 残り時間表示を表示する
     const duration = Duration; // オーディオファイルのタイムを取得
     let eapsedTime = 0; // 処理中の時間
     progressBar.style.width = '0%'; // プログレスバーの値を0%に設定
@@ -161,7 +165,10 @@ function startProgress(Duration) {
         progressBar.setAttribute('aria-valuemax', 100); // プログレスバーの値を100%に設定
         progressBar.setAttribute('style', 'width:' + Math.floor((eapsedTime / duration) * 100 * 10) / 10 + '%'); // プログレスバーの値を100%に設定
 
-        // TODO:残り時間をどこかに表示させる
+        // 残り時間を計算して表示
+        const remainingSeconds = Math.max(0, Math.floor(duration - eapsedTime));
+        remainingTimeSpan.innerText = convertSecondsToHMS(remainingSeconds);
+        
         eapsedTime += 1; // 1秒カウント
 
         // プログレスバーが想定時間より先に100%に到達するときの処理
@@ -173,6 +180,7 @@ function startProgress(Duration) {
             progressBar.setAttribute('aria-valuemin', 0); // プログレスバーの値の最小値を0%に設定
             progressBar.setAttribute('aria-valuemax', 100); // プログレスバーの値の最大値を100%に設定
             progressBar.setAttribute('style', 'width: 100%'); // プログレスバーの値を100%に設定
+            remainingTimeSpan.innerText = '00:00:00'; // 残り時間を0に設定
             clearInterval(intervalId); // 想定時間以上に更新しようとした場合は更新を停止する
         };
     }, 1000);
@@ -181,12 +189,15 @@ function startProgress(Duration) {
 // プログレスバーの終了(プロセス終了時に呼び出される)
 function endProgress(intervalId) {
     const progressBar = document.getElementById('progress-bar')
+    const remainingTimeDisplay = document.getElementById('remaining-time-display'); // 残り時間表示要素の取得
+    
     progressBar.style.width = '100%'; // プログレスバーの値を100%に設定
     progressBar.innerText = '完了しました!'; // プログレスバーの値を100%に設定
-    progressBar.setAttribute('class', 'progress-bar') // プログレスバーを通常食に変更
+    progressBar.setAttribute('class', 'progress-bar') // プログレスバーを通常色に変更
     progressBar.setAttribute('aria-valuenow', 100); // プログレスバーの値を100%に設定
     progressBar.setAttribute('aria-valuemin', 0); // プログレスバーの値を0%に設定
     progressBar.setAttribute('aria-valuemax', 100); // プログレスバーの値を100%に設定
     progressBar.setAttribute('style', 'width: 100%;'); // プログレスバーの値を100%に設定
+    remainingTimeDisplay.hidden = true; // 残り時間表示を非表示にする
     clearInterval(intervalId); // インターバルを終了する
 };
