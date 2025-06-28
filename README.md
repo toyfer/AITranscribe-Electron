@@ -6,6 +6,23 @@
 ## 概要
 OpenAIのWhisperを活用して文字起こしを行うためのソフトウェアです。
 
+### 処理フロー概要
+```mermaid
+graph LR
+    A[音声ファイル] --> B[FFmpeg<br/>WAV変換]
+    B --> C[Faster-Whisper<br/>文字起こし]
+    C --> D[CSV出力<br/>タイムスタンプ付き]
+    
+    style A fill:#e3f2fd
+    style B fill:#fff3e0
+    style C fill:#fff3e0
+    style D fill:#ffebee
+```
+
+## ドキュメント
+- **[処理フロー図](PROCESSING_FLOW.md)** - アプリケーションの処理フローを視覚化したドキュメント
+- **[アーキテクチャ概要](ARCHITECTURE.md)** - システム設計と技術的詳細の説明
+
 ## ビルド手順
 
 ## ディレクトリ構造
