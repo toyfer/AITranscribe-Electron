@@ -4,7 +4,9 @@
   "description": "AIで文字起こしを行うためのソフトウェアです",
   "main": "./src/main.js",
   "scripts": {
-    "start": "chcp 65001 && electron .",
+    "start": "electron .",
+    "start:win": "chcp 65001 && electron .",
+    "start:unix": "electron .",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build_win": "electron-builder --win --x64"
   },
@@ -27,9 +29,9 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@electron/asar": "*",
-    "electron": "*",
-    "electron-builder": "*"
+    "@electron/asar": "3.2.14",
+    "electron": "37.2.3",
+    "electron-builder": "26.0.12"
   },
   "dependencies": {
   }
