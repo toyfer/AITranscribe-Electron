@@ -4,12 +4,25 @@
   "description": "AIで文字起こしを行うためのソフトウェアです",
   "main": "./src/main.js",
   "scripts": {
-    "start": "chcp 65001 && electron .",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build_win": "electron-builder --win --x64"
+    "start": "electron .",
+    "start:win": "chcp 65001 && electron .",
+    "start:unix": "electron .",
+    "start:dev": "electron . --enable-logging",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/main.js src/preload.js src/renderer.js",
+    "lint:fix": "eslint src/main.js src/preload.js src/renderer.js --fix",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win --x64",
+    "build:linux": "electron-builder --linux --x64",
+    "build:mac": "electron-builder --mac",
+    "build:all": "electron-builder --win --linux --mac",
+    "dist": "npm run build",
+    "postinstall": "electron-builder install-app-deps"
   },
   "build": {
     "appId": "com.aitranscribe-electron.app",
+    "productName": "AITranscribe Electron",
     "directories": {
       "output": "build"
     },
@@ -18,18 +31,63 @@
       "package.json",
       "package-lock.json"
     ],
+    "extraResources": [
+      {
+        "from": "src/Whisper",
+        "to": "Whisper",
+        "filter": "**/*"
+      }
+    ],
     "win": {
-      "icon": "",
-      "target": "zip",
-      "asar": "false"
-    }
+      "icon": "assets/icon.ico",
+      "target": [
+        {
+          "target": "zip",
+          "arch": ["x64"]
+        },
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "asar": true
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        }
+      ],
+      "asar": true
+    },
+    "mac": {
+      "icon": "assets/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "asar": true
+    },
+    "asarUnpack": [
+      "**/Whisper/**/*"
+    ]
   },
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@electron/asar": "*",
-    "electron": "*",
-    "electron-builder": "*"
+    "@electron/asar": "3.2.14",
+    "electron": "37.2.3",
+    "electron-builder": "26.0.12",
+    "jest": "^29.7.0",
+    "eslint": "^8.57.0"
   },
   "dependencies": {
   }

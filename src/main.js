@@ -1,8 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, Notification, webContents } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const os = require("os");
 const fs = require("fs");
+
+// Global variables
+let mainWindow;
 
 // 描写・プリロード関数
 function createWindow() {
@@ -58,11 +61,17 @@ const tempCSV = `${tempWAV}.csv`; // Whisperで出力されるCSVファイルの
 
 // FFmpegの実行
 function runFFmpeg(_event, args) {
-  const FFmpegArgs = `${path.join(__dirname, "Whisper\\ffmpeg.exe")} -y -i ${args[0]
-    } -ar 16000 ${tempWAV}`;
-  const process = spawn(`chcp 65001 && ${FFmpegArgs}`, [], {
+  // Cross-platform executable path handling
+  const isWindows = process.platform === 'win32';
+  const ffmpegExe = isWindows ? 'ffmpeg.exe' : 'ffmpeg';
+  const ffmpegPath = path.join(__dirname, 'Whisper', ffmpegExe);
+  
+  const FFmpegArgs = `"${ffmpegPath}" -y -i "${args[0]}" -ar 16000 "${tempWAV}"`;
+  const command = isWindows ? `chcp 65001 && ${FFmpegArgs}` : FFmpegArgs;
+  
+  const process = spawn(command, [], {
     shell: true,
-    windowsVerbatimArguments: true,
+    windowsVerbatimArguments: isWindows,
   });
   console.log(FFmpegArgs);
 
@@ -105,16 +114,17 @@ function runFFmpeg(_event, args) {
 
 // Whisperの実行
 function runWhisper(args) {
-  const WhisperArgs = `${path.join(
-    __dirname,
-    "Whisper\\python.exe"
-  )} ${path.join(__dirname, args[1].script)} ${path.join(
-    __dirname,
-    args[1].model
-  )} ${tempWAV}`;
-  const process = spawn(`chcp 65001 && ${WhisperArgs}`, [], {
+  // Cross-platform executable path handling
+  const isWindows = process.platform === 'win32';
+  const pythonExe = isWindows ? 'python.exe' : 'python';
+  const pythonPath = path.join(__dirname, 'Whisper', pythonExe);
+  
+  const WhisperArgs = `"${pythonPath}" "${path.join(__dirname, args[1].script)}" "${path.join(__dirname, args[1].model)}" "${tempWAV}"`;
+  const command = isWindows ? `chcp 65001 && ${WhisperArgs}` : WhisperArgs;
+  
+  const process = spawn(command, [], {
     shell: true,
-    windowsVerbatimArguments: true,
+    windowsVerbatimArguments: isWindows,
   });
 
   // 標準出力
@@ -143,7 +153,7 @@ function runWhisper(args) {
         "process:Massage",
         `[${getNow()}:Whisper]エラーが発生しました\n errorcode:${code}`
       );
-      fs.unlinckSync(tempWAV); // 一時ファイルを削除
+      fs.unlinkSync(tempWAV); // 一時ファイルを削除
       return;
     }
     console.log(`[${getNow()}:Whisper]child process exited with code ${code}`);
