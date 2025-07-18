@@ -32,7 +32,7 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
   mainWindow.webContents.send(
-    "process:Massage",
+    "process:Message",
     `[${getNow()}:System]システムを起動しました`
   );
 });
@@ -62,9 +62,9 @@ const tempCSV = `${tempWAV}.csv`; // Whisperで出力されるCSVファイルの
 // FFmpegの実行
 function runFFmpeg(_event, args) {
   // Cross-platform executable path handling
-  const isWindows = process.platform === 'win32';
-  const ffmpegExe = isWindows ? 'ffmpeg.exe' : 'ffmpeg';
-  const ffmpegPath = path.join(__dirname, 'Whisper', ffmpegExe);
+  const isWindows = process.platform === "win32";
+  const ffmpegExe = isWindows ? "ffmpeg.exe" : "ffmpeg";
+  const ffmpegPath = path.join(__dirname, "Whisper", ffmpegExe);
   
   const FFmpegArgs = `"${ffmpegPath}" -y -i "${args[0]}" -ar 16000 "${tempWAV}"`;
   const command = isWindows ? `chcp 65001 && ${FFmpegArgs}` : FFmpegArgs;
@@ -98,7 +98,7 @@ function runFFmpeg(_event, args) {
     // エラーハンドリング
     if (code != 0) {
       mainWindow.webContents.send(
-        "process:Massage",
+        "process:Message",
         `[${getNow()}:FFmpeg]エラーが発生しました\n errorcode:${code}`
       );
       return;
@@ -115,9 +115,9 @@ function runFFmpeg(_event, args) {
 // Whisperの実行
 function runWhisper(args) {
   // Cross-platform executable path handling
-  const isWindows = process.platform === 'win32';
-  const pythonExe = isWindows ? 'python.exe' : 'python';
-  const pythonPath = path.join(__dirname, 'Whisper', pythonExe);
+  const isWindows = process.platform === "win32";
+  const pythonExe = isWindows ? "python.exe" : "python";
+  const pythonPath = path.join(__dirname, "Whisper", pythonExe);
   
   const WhisperArgs = `"${pythonPath}" "${path.join(__dirname, args[1].script)}" "${path.join(__dirname, args[1].model)}" "${tempWAV}"`;
   const command = isWindows ? `chcp 65001 && ${WhisperArgs}` : WhisperArgs;
@@ -150,10 +150,10 @@ function runWhisper(args) {
     // エラーハンドリング
     if (code != 0) {
       mainWindow.webContents.send(
-        "process:Massage",
+        "process:Message",
         `[${getNow()}:Whisper]エラーが発生しました\n errorcode:${code}`
       );
-      fs.unlinkSync(tempWAV); // 一時ファイルを削除
+      safeDeleteFile(tempWAV); // 一時ファイルを削除
       return;
     }
     console.log(`[${getNow()}:Whisper]child process exited with code ${code}`);
@@ -161,9 +161,7 @@ function runWhisper(args) {
       "return:Command",
       `[${getNow()}:Whisper]文字起こしが完了しました`
     );
-    if (fs.existsSync(tempWAV)) {
-      fs.unlinkSync(tempWAV);
-    }
+    safeDeleteFile(tempWAV);
     runAdjustment(args);
   });
 }
@@ -175,20 +173,18 @@ function runAdjustment(args) {
   fs.copyFile(tempCSV, outFile, (err) => {
     if (err) {
       mainWindow.webContents.send(
-        "process:Massage",
+        "process:Message",
         `[${getNow()}:System]${err}`
       );
-      if (fs.existsSync(tempWAV)) {
-        fs.unlinkSync(tempWAV);
-      }
+      safeDeleteFile(tempWAV);
+      safeDeleteFile(tempCSV);
     } else {
       mainWindow.webContents.send(
-        "process:Massage",
+        "process:Message",
         `[${getNow()}:System]文字起こしが完了しました`
       );
-      if (fs.existsSync(tempWAV)) {
-        fs.unlinkSync(tempWAV);
-      }
+      safeDeleteFile(tempWAV);
+      safeDeleteFile(tempCSV);
       return;
     }
   });
@@ -212,11 +208,22 @@ function getNow(pathFlag = null) {
   }
 }
 
+// ファイルを安全に削除するヘルパー関数
+function safeDeleteFile(filePath) {
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`[${getNow()}:System]Deleted temporary file: ${filePath}`);
+    }
+  } catch (error) {
+    console.error(`[${getNow()}:System]Failed to delete file ${filePath}: ${error.message}`);
+  }
+}
+
 // ランダム文字列を生成する関数（一時ファイル用）
 function generateRandomString(length) {
-  return [
-    ...Array(length)
-      .map(() => Math.random().toString(36)[2])
-      .join(""),
-  ];
+  return Array(length)
+    .fill()
+    .map(() => Math.random().toString(36)[2])
+    .join("");
 }
