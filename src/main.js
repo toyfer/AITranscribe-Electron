@@ -64,7 +64,7 @@ function runFFmpeg(_event, args) {
   // Cross-platform executable path handling
   const isWindows = process.platform === "win32";
   const ffmpegExe = isWindows ? "ffmpeg.exe" : "ffmpeg";
-  const ffmpegPath = path.join(__dirname, "Whisper", ffmpegExe);
+  const ffmpegPath = path.join(__dirname, "..", "resources", "ffmpeg", ffmpegExe);
   
   const FFmpegArgs = `"${ffmpegPath}" -y -i "${args[0]}" -ar 16000 "${tempWAV}"`;
   const command = isWindows ? `chcp 65001 && ${FFmpegArgs}` : FFmpegArgs;
@@ -117,10 +117,12 @@ function runWhisper(args) {
   // Cross-platform executable path handling
   const isWindows = process.platform === "win32";
   const pythonExe = isWindows ? "python.exe" : "python";
-  const pythonPath = path.join(__dirname, "Whisper", pythonExe);
+  const pythonPath = path.join(__dirname, "..", "resources", "python", pythonExe);
   
   const WhisperArgs = `"${pythonPath}" "${path.join(__dirname, args[1].script)}" "${path.join(__dirname, args[1].model)}" "${tempWAV}"`;
-  const command = isWindows ? `chcp 65001 && ${WhisperArgs}` : WhisperArgs;
+  const command = isWindows 
+    ? `set PYTHONIOENCODING=utf-8 && chcp 65001 && ${WhisperArgs}` 
+    : `PYTHONIOENCODING=utf-8 ${WhisperArgs}`;
   
   const process = spawn(command, [], {
     shell: true,
