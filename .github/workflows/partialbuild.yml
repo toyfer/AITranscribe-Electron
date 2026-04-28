@@ -9,12 +9,12 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install Node.js dependencies
         run: npm install
@@ -38,13 +38,13 @@ jobs:
 
 
       - name: Build Electron project for Windows
-        run: npm run build_win
+        run: npm run build:win
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: AITranscribe-Electron_Partial
           path: |
             build/win-unpacked/
             package-lock.json
-            !build/win-unpacked/resorces/src/Whisper/models
+            !build/win-unpacked/resources/src/Whisper/models

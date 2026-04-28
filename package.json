@@ -84,7 +84,8 @@
   "license": "MIT",
   "devDependencies": {
     "@electron/asar": "3.2.14",
-    "electron": "37.2.3",
+    "electron": "41.3.0",
+    "@types/node": "^24.9.0",
     "electron-builder": "26.0.12",
     "jest": "^29.7.0",
     "eslint": "^8.57.0"
