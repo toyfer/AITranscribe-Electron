@@ -48,7 +48,7 @@
                 <!-- Console Draw -->
                 <div class="col-md-12">
                     <textarea readonly class="form-control bg-dark bg-gradient text-white" rows="8"
-                        id="output-textarea">文字起こしの出力が表示されます</textarea>
+                        id="output-textarea"></textarea>
                 </div>
 
                 <!-- Progress Bar -->
@@ -56,13 +56,6 @@
                     <div hidden class="progress" role="progressbar" aria-label="progressbar-aria" aria-valuenow="0"
                         aria-valuemin="0" aira-value="100" id="progress">
                         <div class="progress-bar bg-success" id="progress-bar"></div>
-                    </div>
-                </div>
-
-                <!-- Remaining Time Display -->
-                <div class="col-md-12">
-                    <div hidden class="text-center mt-2 text-muted" id="remaining-time-display">
-                        残り時間: <span id="remaining-time">00:00:00</span>
                     </div>
                 </div>
 
@@ -95,6 +88,7 @@
     </footer>
 
     <!-- Electron Renderer -->
+    <script src="./progressbar.js"></script>
     <script src="./renderer.js"></script>
 
     <!-- Bootstrap JS -->
