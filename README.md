@@ -1,6 +1,7 @@
 [![Display Git Log](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/git-log.yml/badge.svg?branch=main)](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/git-log.yml)
 [![FullBuild AITranscribe-Electron for Windows](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/fullbuild.yml/badge.svg)](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/fullbuild.yml)
 [![PartialBuild AITranscribe-Electron for Windows](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/partialbuild.yml/badge.svg)](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/partialbuild.yml)
+[![Regenerate package-lock.json](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/regenerate-lock.yml/badge.svg)](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/regenerate-lock.yml)
 
 # AITranscribe-Electron
 
@@ -30,11 +31,23 @@ Faster-Whisper を用いて **オフライン（エアギャップ）** で音�
 npm install
 
 # オンライン機 — Embeddable 上の pip
-.\\src\\Whisper\\python.exe -m pip install -r requirements-whisper.txt
+.\src\Whisper\python.exe -m pip install -r requirements-whisper.txt
 ```
 
 `package-lock.json` をコミット対象にし、CI / ローカルとも可能な限り lock に従ってください。
 `npm audit fix` で lock を勝手に書き換えない運用です（更新は意図した PR で）。
+
+### package-lock.json の再生成（GitHub Actions）
+
+Phase 3 後や `package.json` のピン変更後は、専用 workflow で lock を作り直せます。
+
+1. **Settings → Actions → General → Workflow permissions**  
+   → **Read and write permissions** を有効化（初回のみ・push に必要）
+2. [Actions → Regenerate package-lock.json](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/regenerate-lock.yml) → **Run workflow**
+3. 完了すると main に `chore: regenerate package-lock.json for Node 24 / Electron 43` が push される
+
+- 入力 `target_branch`（既定: `main`）/ `force_regenerate`（既定: true）
+- Node **24.18.0** 上で `npm install --package-lock-only` のみ（ビルドはしない）
 
 ## エアギャップ運用の前提（重要）
 
@@ -135,6 +148,7 @@ npm run build_win
 
 | Workflow | 内容 |
 | --- | --- |
+| [regenerate-lock](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/regenerate-lock.yml) | **package-lock.json を Node 24 で再生成して main に push**（手動） |
 | fullbuild | ピン済み Node 24 / pip / Systran モデルでフル組み立て（要ネット） |
 | partialbuild | モデル除外寄りの部分ビルド |
 
@@ -151,13 +165,13 @@ npm run build_win
 | 0 | Critical バグ修正・エアギャップ仕様明文化 | **完了** |
 | 1 | バージョンピン留め（凍結） | **完了** |
 | 2 | リファクタ（channels / Job / Runtime / UI / Supporter） | **完了** |
-| 3 | Electron 43 / Node 24 セキュリティ更新 | **本変更** |
+| 3 | Electron 43 / Node 24 セキュリティ更新 | **完了** |
 | 4 | Python / faster-whisper の計画的更新 | 予定 |
 | 5 | 配布・ライセンス文書・fuses | 予定 |
 
 ## 今後の課題
 
-1. `package-lock.json` を Node 24 環境で再生成してコミット（本 PR 後すぐ）
-2. LICENSE / サードパーティ通知（FFmpeg 非同梱の案内）
-3. Electron fuses（node CLI 無効など）
+1. LICENSE / サードパーティ通知（FFmpeg 非同梱の案内）
+2. Electron fuses（node CLI 無効など）
+3. lock 反映後、fullbuild / partialbuild を `npm ci` に切替
 4. Phase 4: faster-whisper / pip lock / Python パッチ版の再評価
