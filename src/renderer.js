@@ -1,5 +1,5 @@
 /**
- * Renderer UI — UIController + MODEL_CATALOG (Phase 4).
+ * Renderer UI — UIController + MODEL_CATALOG.
  * Talks only via window.electronAPI (preload). ProgressBar is in progressbar.js.
  *
  * Local CTranslate2 dirs under src/Whisper/models/<dir>/ — see docs/models.md.
@@ -12,7 +12,7 @@
 const MODEL_CATALOG = Object.freeze([
   {
     id: "small",
-    label: "高速 — small（軽量・CPU向け）",
+    label: "速度重視 — small（軽量・CPU向け）",
     dir: "small",
     hf: "Systran/faster-whisper-small",
     estimatedDurationMul: 0.7,
@@ -20,27 +20,11 @@ const MODEL_CATALOG = Object.freeze([
   },
   {
     id: "turbo",
-    label: "効率（推奨）— large-v3-turbo（高精度を効率化）",
+    label: "精度重視（デフォルト）— large-v3-turbo",
     dir: "turbo",
     hf: "deepdml/faster-whisper-large-v3-turbo-ct2",
     estimatedDurationMul: 0.55,
     default: true,
-  },
-  {
-    id: "medium",
-    label: "精度 — medium（従来のバランス）",
-    dir: "medium",
-    hf: "Systran/faster-whisper-medium",
-    estimatedDurationMul: 1.3,
-    default: false,
-  },
-  {
-    id: "large-v3",
-    label: "最高精度 — large-v3（CPUでは遅い・任意）",
-    dir: "large-v3",
-    hf: "Systran/faster-whisper-large-v3",
-    estimatedDurationMul: 3.0,
-    default: false,
   },
 ]);
 
@@ -133,7 +117,9 @@ class UIController {
       if (filePath) {
         this.filePathElement.value = filePath;
         // file:// プロトコルでローカルパスを読む（Windows パスはそのままで可）
-        this.audioFile.src = filePath.startsWith("file:") ? filePath : `file:///${filePath.replace(/\\/g, "/")}`;
+        this.audioFile.src = filePath.startsWith("file:")
+          ? filePath
+          : `file:///${filePath.replace(/\\/g, "/")}`;
       }
     } catch (err) {
       console.error(err);

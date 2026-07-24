@@ -1,10 +1,16 @@
 name: FullBuild AITranscribe-Electron for Windows
 
-# Online assembly only — air-gapped runtime is produced by copying pinned
-# Whisper layout onto the built app. See README + requirements-whisper.txt.
+# Online assembly: npm ci + FFmpeg + Python Embeddable + models + electron-builder.
+# On tag v*: also attach zip to the GitHub Release assets.
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -14,7 +20,7 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js (Phase 3 — 24 LTS)
+      - name: Set up Node.js (24 LTS)
         uses: actions/setup-node@v4
         with:
           node-version: "24.18.0"
@@ -29,10 +35,9 @@ jobs:
       - name: Python Embeddable Download (pinned 3.11.4)
         run: Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
 
-      - name: Faster-Whisper models (Systran + turbo CT2, local dirs)
+      - name: Faster-Whisper models (small + turbo only)
         run: |
           git clone --depth 1 https://huggingface.co/Systran/faster-whisper-small .\src\Whisper\models\small\
-          git clone --depth 1 https://huggingface.co/Systran/faster-whisper-medium .\src\Whisper\models\medium\
           git clone --depth 1 https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2 .\src\Whisper\models\turbo\
 
       - name: Setup FFmpeg + Embeddable + pinned pip deps
@@ -50,7 +55,10 @@ jobs:
       - name: Build Electron project for Windows
         run: npm run build_win
 
-      - name: Archive artifacts
+      - name: List build outputs
+        run: Get-ChildItem -Recurse build | Select-Object FullName, Length
+
+      - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: AITranscribe-Electron
@@ -58,3 +66,15 @@ jobs:
             build/*.zip
             package-lock.json
             requirements-whisper.txt
+            LICENSE
+            THIRD_PARTY_NOTICES.md
+
+      - name: Attach zip to GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/*.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
