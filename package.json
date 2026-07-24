@@ -1,6 +1,6 @@
 {
   "name": "AITranscribe-Electron",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "AIで文字起こしを行うためのソフトウェアです（エアギャップ向け）",
   "main": "./src/main.js",
   "engines": {
@@ -17,21 +17,36 @@
   "build": {
     "appId": "com.aitranscribe-electron.app",
     "productName": "AITranscribe Electron",
+    "copyright": "Copyright © 2023-2026 toyfer",
     "directories": {
       "output": "build"
     },
     "files": [
       "src/**/*",
       "package.json",
-      "package-lock.json"
+      "package-lock.json",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md",
+      "docs/**/*",
+      "requirements-whisper.txt"
     ],
     "win": {
       "icon": "",
       "target": "zip",
       "asar": false
+    },
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": false,
+      "onlyLoadAppFromAsar": false,
+      "loadBrowserProcessSpecificV8Snapshot": false,
+      "grantFileProtocolExtraPrivileges": true
     }
   },
-  "author": "",
+  "author": "toyfer",
   "license": "MIT",
   "devDependencies": {
     "@electron/asar": "3.2.18",
