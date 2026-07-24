@@ -1,6 +1,9 @@
 /**
- * IPC channel names — single source of truth for main / preload.
- * Renderer talks only via preload's electronAPI (never imports this file).
+ * IPC channel names — single source of truth for the **main** process.
+ *
+ * Renderer talks only via preload's electronAPI.
+ * Sandboxed preload MUST NOT require this file (only `require('electron')` works).
+ * Keep string values in sync with the constants in src/preload.js.
  *
  * Phase 2: string literals centralized; wire protocol unchanged.
  */
