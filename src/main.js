@@ -3,6 +3,7 @@ const { spawn } = require("child_process");
 const path = require("path");
 const os = require("os");
 const fs = require("fs");
+const { CHANNELS } = require("./shared/channels");
 
 // エアギャップ配布想定: FFmpeg / Python Embeddable / Faster-Whisper モデルは
 // リポジトリに含めず、実行時に src/Whisper 配下へ配置する（README 参照）
@@ -22,13 +23,13 @@ function createWindow() {
 
 function sendProcessMessage(message) {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("process:Message", message);
+    mainWindow.webContents.send(CHANNELS.PROCESS_MESSAGE, message);
   }
 }
 
 function sendCommandOutput(message) {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("return:Command", message);
+    mainWindow.webContents.send(CHANNELS.RETURN_COMMAND, message);
   }
 }
 
@@ -69,8 +70,8 @@ function checkRuntimeLayout() {
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
-  ipcMain.handle("dialog:openFile", handleFileOpen);
-  ipcMain.on("execute:runFFmpeg", runFFmpeg);
+  ipcMain.handle(CHANNELS.DIALOG_OPEN_FILE, handleFileOpen);
+  ipcMain.on(CHANNELS.EXECUTE_RUN_FFMPEG, runFFmpeg);
   // runWhisper は FFmpeg 完了後に main 内から呼ぶ（preload の runWhisper は未使用）
   createWindow();
 
