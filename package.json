@@ -1,36 +1,42 @@
 {
   "name": "AITranscribe-Electron",
   "version": "2.1.0",
-  "description": "AIで文字起こしを行うためのソフトウェアです",
+  "description": "AIで文字起こしを行うためのソフトウェアです（エアギャップ向け）",
   "main": "./src/main.js",
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "start": "chcp 65001 && electron .",
+    "start:unix": "electron .",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build_win": "electron-builder --win --x64"
+    "build_win": "electron-builder --win --x64",
+    "build:win": "npm run build_win",
+    "postinstall": "electron-builder install-app-deps"
   },
   "build": {
     "appId": "com.aitranscribe-electron.app",
+    "productName": "AITranscribe Electron",
     "directories": {
       "output": "build"
     },
     "files": [
-      "src",
+      "src/**/*",
       "package.json",
       "package-lock.json"
     ],
     "win": {
       "icon": "",
       "target": "zip",
-      "asar": "false"
+      "asar": false
     }
   },
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@electron/asar": "*",
-    "electron": "*",
-    "electron-builder": "*"
+    "@electron/asar": "3.2.14",
+    "electron": "37.2.3",
+    "electron-builder": "26.0.12"
   },
-  "dependencies": {
-  }
+  "dependencies": {}
 }
