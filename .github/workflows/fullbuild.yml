@@ -1,8 +1,10 @@
 name: FullBuild AITranscribe-Electron for Windows
 
+# Online assembly only — air-gapped runtime is produced by copying pinned
+# Whisper layout onto the built app. See README + requirements-whisper.txt.
+
 on:
-  # push:
-    workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,28 +14,28 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up Node.js (pinned major for Phase 1)
         uses: actions/setup-node@v4
         with:
-          node-version: 20.6
+          node-version: "20.18.1"
+          cache: npm
 
-      - name: Install Node.js dependencies
+      - name: Install Node.js dependencies (locked)
         run: |
           npm install
-          npm audit fix
 
-      - name: FFmpeg Download
-        run: Invoke-WebRequest -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -Outfile FFmpeg.zip 
+      - name: FFmpeg Download (CI assembly only; not committed to git)
+        run: Invoke-WebRequest -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -Outfile FFmpeg.zip
 
-      - name: Python Embeddable Download
+      - name: Python Embeddable Download (pinned 3.11.4)
         run: Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
 
-      - name: Whisper Models Download
+      - name: Faster-Whisper models (Systran CTranslate2, local dirs)
         run: |
-          git clone https://huggingface.co/guillaumekln/faster-whisper-small .\src\Whisper\models\small\
-          git clone https://huggingface.co/guillaumekln/faster-whisper-medium .\src\Whisper\models\medium\
+          git clone --depth 1 https://huggingface.co/Systran/faster-whisper-small .\src\Whisper\models\small\
+          git clone --depth 1 https://huggingface.co/Systran/faster-whisper-medium .\src\Whisper\models\medium\
 
-      - name: Setup FFmpeg Python dependencies
+      - name: Setup FFmpeg + Embeddable + pinned pip deps
         run: |
           Expand-Archive .\FFmpeg.zip .\
           Copy-Item -path .\ffmpeg-master-latest-win64-lgpl\bin\ffmpeg.exe .\src\Whisper\
@@ -41,9 +43,9 @@ jobs:
           (Get-Content .\src\Whisper\Python311._pth) -replace '#import site', 'import site' | Set-Content .\src\Whisper\Python311._pth
           Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -Outfile .\src\Whisper\get-pip.py
           .\src\Whisper\Python.exe .\src\Whisper\get-pip.py
-          .\src\Whisper\Python.exe -m pip install -U pip
-          .\src\Whisper\Python.exe -m pip install --force-reinstall "faster-whisper @ https://github.com/guillaumekln/faster-whisper/archive/refs/heads/master.tar.gz"
-
+          .\src\Whisper\Python.exe -m pip install -U "pip==25.0.1"
+          Copy-Item .\requirements-whisper.txt .\src\Whisper\requirements-whisper.txt
+          .\src\Whisper\Python.exe -m pip install -r .\src\Whisper\requirements-whisper.txt
 
       - name: Build Electron project for Windows
         run: npm run build_win
@@ -52,6 +54,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AITranscribe-Electron
-          path: | 
+          path: |
             build/*.zip
             package-lock.json
+            requirements-whisper.txt
