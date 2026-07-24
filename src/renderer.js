@@ -64,6 +64,9 @@ class UIController {
   /**
    * Map UI model value → paths + estimated progress duration.
    * Does not mutate this.audioDuration (prevents stacked multipliers).
+   *
+   * Multipliers are rough CPU int8 wall-time vs audio length (air-gap PC).
+   * turbo ≈ large-v3 quality with fewer decoder layers → often faster than medium.
    */
   selectModelConfig(modelValue, durationSec) {
     switch (modelValue) {
@@ -78,6 +81,13 @@ class UIController {
           model: "Whisper\\models\\medium",
           script: "Whisper\\Faster-Whisper.py",
           estimatedDuration: durationSec * 1.3,
+        };
+      case "3":
+        // large-v3-turbo (CTranslate2) — see docs/models.md
+        return {
+          model: "Whisper\\models\\turbo",
+          script: "Whisper\\Faster-Whisper.py",
+          estimatedDuration: durationSec * 0.55,
         };
       default:
         return null;
@@ -95,7 +105,7 @@ class UIController {
       this.audioDuration || 60
     );
     if (!selectModel) {
-      alert("精度を選択してください");
+      alert("モデルを選択してください");
       return;
     }
 

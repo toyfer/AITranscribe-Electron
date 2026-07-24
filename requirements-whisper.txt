@@ -1,13 +1,19 @@
 # Faster-Whisper stack for Python Embeddable (air-gapped runtime)
-# Phase 1: pin versions for reproducible offline installs.
+# Phase 1–4: pin versions for reproducible offline installs.
 # Do NOT use git+https master tarballs in CI or production builds.
 #
 # Online machine (Embeddable python.exe):
 #   .\python.exe -m pip install -r requirements-whisper.txt
 # Then copy the entire src/Whisper folder (with site-packages) to the air-gapped PC.
 #
-# App code loads models from local directories only (models/small, models/medium).
+# App loads models from local dirs only: models/small, models/medium, models/turbo.
 # Runtime must not require network access.
+#
+# Models (see docs/models.md):
+#   small  → Systran/faster-whisper-small
+#   medium → Systran/faster-whisper-medium
+#   turbo  → deepdml/faster-whisper-large-v3-turbo-ct2  (large-v3-turbo, multilingual/ja)
+#   (distil-* is mostly English — not used as default for JA air-gap)
 
 faster-whisper==1.2.1
 
@@ -15,6 +21,7 @@ faster-whisper==1.2.1
 # - ctranslate2>=4.0,<5
 # - huggingface-hub>=0.21
 # - tokenizers>=0.13,<1
-# - onnxruntime>=1.14,<2
+# - onnxruntime>=1.14,<2  (VAD)
 # - av>=11
 # CPU-only air-gap: no CUDA wheels required. device=cpu / compute_type=int8 in Faster-Whisper.py
+# Optional override: AITRANSCRIBE_DEVICE / AITRANSCRIBE_COMPUTE

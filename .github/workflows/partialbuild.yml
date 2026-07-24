@@ -19,8 +19,8 @@ jobs:
           node-version: "24.18.0"
           cache: npm
 
-      - name: Install Node.js dependencies
-        run: npm install
+      - name: Install Node.js dependencies (locked)
+        run: npm ci
 
       - name: FFmpeg Download (CI assembly only)
         run: Invoke-WebRequest -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -Outfile FFmpeg.zip
