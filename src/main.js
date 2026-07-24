@@ -1,187 +1,249 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, Notification, webContents } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const os = require("os");
 const fs = require("fs");
 
-// 描写・プリロード関数
+// エアギャップ配布想定: FFmpeg / Python Embeddable / Faster-Whisper モデルは
+// リポジトリに含めず、実行時に src/Whisper 配下へ配置する（README 参照）
+
+let mainWindow;
+
 function createWindow() {
-  // ブラウザウィンドウを作成
   mainWindow = new BrowserWindow({
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
     },
   });
-  mainWindow.loadFile("./src/index.html");
-
-  // 開発者ツールを開く（オプション）
-  // mainWindow.webContents.openDevTools();
+  mainWindow.loadFile(path.join(__dirname, "index.html"));
 }
 
-// アプリケーションの準備が完了したらウィンドウを作成
+function sendProcessMessage(message) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("process:Message", message);
+  }
+}
+
+function sendCommandOutput(message) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("return:Command", message);
+  }
+}
+
+function safeDeleteFile(filePath) {
+  try {
+    if (filePath && fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch (error) {
+    console.error(`[${getNow()}:System]一時ファイル削除失敗: ${filePath} ${error.message}`);
+  }
+}
+
+function createTempJob() {
+  const tempDir = os.tmpdir();
+  const tempWAV = path.join(tempDir, `aitranscribe-${generateRandomString(12)}.wav`);
+  const tempCSV = `${tempWAV}.csv`;
+  return { tempWAV, tempCSV };
+}
+
+function getWhisperRoot() {
+  return path.join(__dirname, "Whisper");
+}
+
+function resolveBundledPath(...segments) {
+  return path.join(getWhisperRoot(), ...segments);
+}
+
+// 起動時に必須バイナリの有無だけ軽く確認（モデルは選択時に確認）
+function checkRuntimeLayout() {
+  const ffmpegPath = resolveBundledPath("ffmpeg.exe");
+  const pythonPath = resolveBundledPath("python.exe");
+  const missing = [];
+  if (!fs.existsSync(ffmpegPath)) missing.push("Whisper/ffmpeg.exe（ライセンス都合で同梱しない・手動配置）");
+  if (!fs.existsSync(pythonPath)) missing.push("Whisper/python.exe（Python Embeddable 展開先）");
+  return { ffmpegPath, pythonPath, missing };
+}
+
 app.whenReady().then(() => {
-  Menu.setApplicationMenu(null); // デフォルトのメニューを非表示
-  ipcMain.handle("dialog:openFile", handleFileOpen); // ファイル選択のIPCリッスン
-  ipcMain.on("execute:runFFmpeg", runFFmpeg); // FFmpeg用のIPCリッスン
-  ipcMain.on("execute:runWhisper", runWhisper); // Whisper用のIPCリッスン（使わない）
-  createWindow(); // ウィンドウ作成
-  mainWindow.webContents.send(
-    "process:Massage",
-    `[${getNow()}:System]システムを起動しました`
-  );
+  Menu.setApplicationMenu(null);
+  ipcMain.handle("dialog:openFile", handleFileOpen);
+  ipcMain.on("execute:runFFmpeg", runFFmpeg);
+  // runWhisper は FFmpeg 完了後に main 内から呼ぶ（preload の runWhisper は未使用）
+  createWindow();
+
+  mainWindow.webContents.once("did-finish-load", () => {
+    const { missing } = checkRuntimeLayout();
+    sendProcessMessage(`[${getNow()}:System]システムを起動しました`);
+    if (missing.length > 0) {
+      sendCommandOutput(
+        `[${getNow()}:System]エアギャップ用ランタイム未配置:\n- ${missing.join("\n- ")}\nREADME の配置手順を確認してください。`
+      );
+    }
+  });
+
+  app.on("activate", function () {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
 });
 
-// ウィンドウがすべて閉じられたらアプリを終了
 app.on("window-all-closed", function () {
   if (process.platform !== "darwin") app.quit();
 });
 
-// 実行セクション
-// ファイル選択ダイアログの表示
 async function handleFileOpen() {
-  const { canceled, filePaths } = await dialog.showOpenDialog();
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    properties: ["openFile"],
+    filters: [
+      {
+        name: "Audio",
+        extensions: ["wav", "mp3", "m4a", "aac", "flac", "ogg", "wma", "mp4", "mkv"],
+      },
+      { name: "All Files", extensions: ["*"] },
+    ],
+  });
   if (!canceled) {
     return filePaths[0];
-  } else {
-    return null;
   }
+  return null;
 }
 
-// 文字起こし開始
-// 共通の変数を宣言
-const tempDir = os.tmpdir(); // 一時ディレクトリのパスを取得
-const tempWAV = path.join(tempDir, `${generateRandomString(10)}.wav`); // FFmpegで出力されるWAVファイルのパスを定義
-const tempCSV = `${tempWAV}.csv`; // Whisperで出力されるCSVファイルのパスを定義
-
-// FFmpegの実行
+// FFmpeg の実行（ジョブごとに一時ファイルを新規生成）
 function runFFmpeg(_event, args) {
-  const FFmpegArgs = `${path.join(__dirname, "Whisper\\ffmpeg.exe")} -y -i ${args[0]
-    } -ar 16000 ${tempWAV}`;
-  const process = spawn(`chcp 65001 > nul && ${FFmpegArgs}`, [], {
-    shell: true,
-    windowsVerbatimArguments: true,
-  });
-  console.log(FFmpegArgs);
+  const inputPath = args[0];
+  const modelArgs = args[1];
+  const job = createTempJob();
 
-  // 標準出力リッスン
-  process.stdout.on("data", (data) => {
-    console.log(`[${getNow()}:FFmpeg]${data}`);
-    mainWindow.webContents.send(
-      "return:Command",
-      `[${getNow()}:FFmpeg]${data}`
+  const { ffmpegPath, pythonPath, missing } = checkRuntimeLayout();
+  if (missing.length > 0) {
+    sendProcessMessage(
+      `[${getNow()}:System]実行に必要なファイルが不足しています。\n${missing.join("\n")}`
     );
-  });
+    return;
+  }
 
-  // エラー出力リッスン
-  process.stderr.on("data", (data) => {
-    console.log(`[${getNow()}:FFmpeg]${data}`);
-    mainWindow.webContents.send(
-      "return:Command",
-      `[${getNow()}:FFmpeg]${data}`
+  if (!inputPath || !fs.existsSync(inputPath)) {
+    sendProcessMessage(`[${getNow()}:System]音声ファイルが見つかりません`);
+    return;
+  }
+
+  const scriptPath = path.join(__dirname, modelArgs.script);
+  const modelPath = path.join(__dirname, modelArgs.model);
+  if (!fs.existsSync(scriptPath)) {
+    sendProcessMessage(`[${getNow()}:System]Faster-Whisper.py が見つかりません: ${scriptPath}`);
+    return;
+  }
+  if (!fs.existsSync(modelPath)) {
+    sendProcessMessage(
+      `[${getNow()}:System]モデルディレクトリが見つかりません（オフライン配置が必要）: ${modelPath}`
     );
+    return;
+  }
+
+  // shell を使わず引数配列で渡す（空白・日本語パス対応 / インジェクション回避）
+  const ffmpegArgs = ["-y", "-i", inputPath, "-ar", "16000", job.tempWAV];
+  console.log(ffmpegPath, ffmpegArgs.join(" "));
+
+  const child = spawn(ffmpegPath, ffmpegArgs, {
+    windowsHide: true,
   });
 
-  // 終了時リッスン
-  process.on("close", (code) => {
-    // エラーハンドリング
+  child.stdout.on("data", (data) => {
+    const line = `[${getNow()}:FFmpeg]${data}`;
+    console.log(line);
+    sendCommandOutput(line);
+  });
+
+  child.stderr.on("data", (data) => {
+    const line = `[${getNow()}:FFmpeg]${data}`;
+    console.log(line);
+    sendCommandOutput(line);
+  });
+
+  child.on("error", (err) => {
+    sendProcessMessage(`[${getNow()}:FFmpeg]起動に失敗しました: ${err.message}`);
+    safeDeleteFile(job.tempWAV);
+  });
+
+  child.on("close", (code) => {
     if (code != 0) {
-      mainWindow.webContents.send(
-        "process:Massage",
-        `[${getNow()}:FFmpeg]エラーが発生しました\n errorcode:${code}`
-      );
+      sendProcessMessage(`[${getNow()}:FFmpeg]エラーが発生しました\n errorcode:${code}`);
+      safeDeleteFile(job.tempWAV);
       return;
     }
     console.log(`[${getNow()}:FFmpeg]child process exited with code ${code}`);
-    mainWindow.webContents.send(
-      "return:Command",
-      `[${getNow()}:FFmpeg]音声処理が完了しました`
-    );
-    runWhisper(args); // FFmpegの実行が完了時、Whisperを実行する
+    sendCommandOutput(`[${getNow()}:FFmpeg]音声処理が完了しました`);
+    runWhisper({ inputPath, modelArgs, job, pythonPath, scriptPath, modelPath });
   });
 }
 
-// Whisperの実行
-function runWhisper(args) {
-  const WhisperArgs = `${path.join(
-    __dirname,
-    "Whisper\\python.exe"
-  )} ${path.join(__dirname, args[1].script)} ${path.join(
-    __dirname,
-    args[1].model
-  )} ${tempWAV}`;
-  const process = spawn(`chcp 65001 > nul && ${WhisperArgs}`, [], {
-    shell: true,
-    windowsVerbatimArguments: true,
+// Whisper（Faster-Whisper）の実行 — ローカル embeddable Python + ローカルモデルのみ使用
+function runWhisper(ctx) {
+  const { job, pythonPath, scriptPath, modelPath, inputPath, modelArgs } = ctx;
+
+  const pythonArgs = [scriptPath, modelPath, job.tempWAV];
+  console.log(pythonPath, pythonArgs.join(" "));
+
+  const child = spawn(pythonPath, pythonArgs, {
+    windowsHide: true,
+    env: {
+      ...process.env,
+      PYTHONIOENCODING: "utf-8",
+      PYTHONUTF8: "1",
+      // オフライン: ユーザーサイトやネット経由の追加取得を避ける
+      PYTHONNOUSERSITE: "1",
+    },
   });
 
-  // 標準出力
-  process.stdout.on("data", (data) => {
-    console.log(`[${getNow()}:Whisper]${data}`);
-    mainWindow.webContents.send(
-      "return:Command",
-      `[${getNow()}:Whisper]${data}`
-    );
+  child.stdout.on("data", (data) => {
+    const line = `[${getNow()}:Whisper]${data}`;
+    console.log(line);
+    sendCommandOutput(line);
   });
 
-  // エラー出力
-  process.stderr.on("data", (data) => {
-    console.log(`[${getNow()}:Whisper]${data}`);
-    mainWindow.webContents.send(
-      "return:Command",
-      `[${getNow()}:Whisper]${data}`
-    );
+  child.stderr.on("data", (data) => {
+    const line = `[${getNow()}:Whisper]${data}`;
+    console.log(line);
+    sendCommandOutput(line);
   });
 
-  // 終了時出力
-  process.on("close", (code) => {
-    // エラーハンドリング
+  child.on("error", (err) => {
+    sendProcessMessage(`[${getNow()}:Whisper]起動に失敗しました: ${err.message}`);
+    safeDeleteFile(job.tempWAV);
+    safeDeleteFile(job.tempCSV);
+  });
+
+  child.on("close", (code) => {
     if (code != 0) {
-      mainWindow.webContents.send(
-        "process:Massage",
-        `[${getNow()}:Whisper]エラーが発生しました\n errorcode:${code}`
-      );
-      fs.unlinkSync(tempWAV); // 一時ファイルを削除
+      sendProcessMessage(`[${getNow()}:Whisper]エラーが発生しました\n errorcode:${code}`);
+      safeDeleteFile(job.tempWAV);
+      safeDeleteFile(job.tempCSV);
       return;
     }
     console.log(`[${getNow()}:Whisper]child process exited with code ${code}`);
-    mainWindow.webContents.send(
-      "return:Command",
-      `[${getNow()}:Whisper]文字起こしが完了しました`
-    );
-    if (fs.existsSync(tempWAV)) {
-      fs.unlinkSync(tempWAV);
-    }
-    runAdjustment(args);
+    sendCommandOutput(`[${getNow()}:Whisper]文字起こしが完了しました`);
+    safeDeleteFile(job.tempWAV);
+    runAdjustment({ inputPath, job });
   });
 }
 
-// 最終調整実行
-function runAdjustment(args) {
-  // tmpファイルのパスを取得
-  const outFile = `${args[0]}_[${getNow(true)}].csv`;
-  fs.copyFile(tempCSV, outFile, (err) => {
+function runAdjustment(ctx) {
+  const { inputPath, job } = ctx;
+  const outFile = `${inputPath}_[${getNow(true)}].csv`;
+
+  fs.copyFile(job.tempCSV, outFile, (err) => {
     if (err) {
-      mainWindow.webContents.send(
-        "process:Massage",
-        `[${getNow()}:System]${err}`
-      );
-      if (fs.existsSync(tempWAV)) {
-        fs.unlinkSync(tempWAV);
-      }
+      sendProcessMessage(`[${getNow()}:System]${err}`);
     } else {
-      mainWindow.webContents.send(
-        "process:Massage",
-        `[${getNow()}:System]文字起こしが完了しました`
-      );
-      if (fs.existsSync(tempWAV)) {
-        fs.unlinkSync(tempWAV);
-      }
-      return;
+      sendProcessMessage(`[${getNow()}:System]文字起こしが完了しました\n出力: ${outFile}`);
     }
+    safeDeleteFile(job.tempWAV);
+    safeDeleteFile(job.tempCSV);
   });
 }
 
-// 時刻の取得関数
 function getNow(pathFlag = false) {
   const now = new Date();
 
@@ -194,15 +256,13 @@ function getNow(pathFlag = false) {
 
   if (!pathFlag) {
     return `${year}/${month}/${date}_${hour}:${min}:${sec}`;
-  } else {
-    return `${year}-${month}-${date}_${hour}-${min}-${sec}`;
   }
+  return `${year}-${month}-${date}_${hour}-${min}-${sec}`;
 }
 
-// 引数で指定されて文字数分ランダム文字列を生成して返す関数（一時ファイル用）
 function generateRandomString(length) {
-  let result = '';
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = "";
+  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   const charactersLength = characters.length;
   for (let i = 0; i < length; i++) {
     result += characters.charAt(Math.floor(Math.random() * charactersLength));
