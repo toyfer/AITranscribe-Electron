@@ -14,129 +14,82 @@ Faster-Whisper を用いて **オフライン（エアギャップ）** で音�
 
 ## ピン留め方針（Phase 3–4）
 
-再現性のためバージョンを固定します。
-
 | コンポーネント | 固定バージョン | 備考 |
 | --- | --- | --- |
-| Node.js（開発 / CI） | **24.18.0**（`engines`: `>=24 <25`） | Active LTS（〜2028-04） |
+| Node.js（開発 / CI） | **24.18.0**（`engines`: `>=24 <25`） | Active LTS |
 | Electron | **43.2.0** | Chromium 150 / Node 24.18 |
-| electron-builder | **26.15.7** | 26.x 最新 |
-| @electron/asar | **3.2.18** | |
-| Python Embeddable | **3.11.4** amd64 | |
-| faster-whisper | **1.2.1**（最新・維持） | master tarball 禁止 |
-| モデル small | Systran/faster-whisper-small | 速度 |
-| モデル medium | Systran/faster-whisper-medium | バランス |
-| モデル **turbo** | deepdml/faster-whisper-large-v3-turbo-ct2 | **効率（large 級・高速・日本語）** |
-
-詳細比較: [docs/models.md](docs/models.md)
+| electron-builder | **26.15.7** | 26.x |
+| faster-whisper | **1.2.1** | turbo エイリアス対応 |
+| モデル（**UI 既定**） | **turbo** | large-v3 級を効率化 |
+| モデル small / medium / large-v3 | 各 Systran 等 | 詳細 [docs/models.md](docs/models.md) |
 
 ```bash
-# オンライン機 — npm（package-lock に従う）
 npm ci
-
-# オンライン機 — Embeddable 上の pip
 .\src\Whisper\python.exe -m pip install -r requirements-whisper.txt
 ```
 
-`package-lock.json` をコミット対象にします。更新は [regenerate-lock workflow](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/regenerate-lock.yml) または意図した PR で。
+### package-lock 再生成
 
-### package-lock.json の再生成（GitHub Actions）
+[Regenerate package-lock.json](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/regenerate-lock.yml)（Settings で Workflow **Read and write** が必要）
 
-1. **Settings → Actions → General → Workflow permissions** → **Read and write permissions**
-2. [Regenerate package-lock.json](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/regenerate-lock.yml) → **Run workflow**
+## モデル（Phase 4）
 
-## エアギャップ運用の前提（重要）
+詳細: **[docs/models.md](docs/models.md)** — UI は `renderer.js` の **`MODEL_CATALOG`** が単一ソース。
 
-このリポジトリの Git には **ランタイム本体を含めません**。
-
-| コンポーネント | Git に含むか | 理由 / 配置場所 |
-| --- | --- | --- |
-| Electron アプリ本体 | 含む | アプリロジック |
-| `Faster-Whisper.py` / `requirements-whisper.txt` | 含む | 推論エントリと pip ピン |
-| **FFmpeg (`ffmpeg.exe`)** | **含めない** | ライセンス都合 |
-| **Python Embeddable** | **含めない** | 公式 embeddable を展開 |
-| **モデル weights** | **含めない** | オンラインで取得しコピー |
-| site-packages | 含めない | Embeddable 上に事前インストール |
-
-### 実行時配置（`src/Whisper/`）
-
-```
-src/Whisper/
-  ffmpeg.exe
-  python.exe / python311.dll / Lib/ ...
-  Faster-Whisper.py
-  models/
-    small/    # Systran/faster-whisper-small
-    medium/   # Systran/faster-whisper-medium
-    turbo/    # deepdml/faster-whisper-large-v3-turbo-ct2
-```
-
-### モデルの取得（オンライン機）
+| UI | dir | 取得元 | 用途 |
+| --- | --- | --- | --- |
+| 高速 | `models/small/` | Systran/faster-whisper-small | 軽量 CPU |
+| **効率（既定）** | `models/turbo/` | deepdml/faster-whisper-large-v3-turbo-ct2 | **高精度を効率化・JA** |
+| 精度 | `models/medium/` | Systran/faster-whisper-medium | 従来バランス |
+| 最高精度 | `models/large-v3/` | Systran/faster-whisper-large-v3 | 任意・重い |
 
 ```bash
 git clone --depth 1 https://huggingface.co/Systran/faster-whisper-small src/Whisper/models/small
-git clone --depth 1 https://huggingface.co/Systran/faster-whisper-medium src/Whisper/models/medium
 git clone --depth 1 https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2 src/Whisper/models/turbo
+git clone --depth 1 https://huggingface.co/Systran/faster-whisper-medium src/Whisper/models/medium
+# 任意
+# git clone --depth 1 https://huggingface.co/Systran/faster-whisper-large-v3 src/Whisper/models/large-v3
 ```
 
-- **distil-*** 系は主に英語向けのため、日本語本線には使いません（[docs/models.md](docs/models.md)）
-- アプリは `WhisperModel(ローカルpath)` のみ。実行時ネット不要
-- 推論: CPU `int8` + `language=ja` + `vad_filter=True`（環境変数で device 上書き可）
+- **distil-*** は英語寄りのため日本語本線では不採用
+- 推論: CPU `int8` + `language=ja` + `vad_filter=True`（`AITRANSCRIBE_DEVICE` 等で上書き可）
+- 既定 UI は turbo。未配置なら small 等に切替
 
-### FFmpeg / Python Embeddable
-
-- FFmpeg: 同梱しない。`src/Whisper/ffmpeg.exe` に配置
-- Python: [3.11.4 Embeddable amd64](https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip) → `import site` 有効化 → `pip install -r requirements-whisper.txt`
-
-## ディレクトリ構造
+## エアギャップ配置
 
 ```
-src/
-  main.js / main/ / shared/ / preload.js / renderer.js ...
-  Whisper/
-  Transcribe-Suppoter/
-docs/models.md
-requirements-whisper.txt
+src/Whisper/
+  ffmpeg.exe / python.exe / Lib/ ...
+  Faster-Whisper.py
+  models/{small,turbo,medium,large-v3}/
 ```
 
-## ローカル開発
+不足時はネット取得せずエラー。
+
+## 開発・ビルド
 
 ```bash
-npm ci   # または npm install
+npm ci
 npm start
-```
-
-## ビルド（Windows）
-
-```bash
 npm run build_win
 ```
 
-## セキュリティ（Electron）
+## セキュリティ
 
-- `contextIsolation: true` / `nodeIntegration: false` / `sandbox: true`
-- preload + contextBridge のみ
-- 子プロセスは `shell: false` + 引数配列
+`contextIsolation` / `nodeIntegration: false` / `sandbox: true` / `shell: false` spawn
 
-## GitHub Actions
+## Actions
 
 | Workflow | 内容 |
 | --- | --- |
-| regenerate-lock | package-lock 再生成 → push（手動） |
-| fullbuild | Node 24 + `npm ci` + small/medium/**turbo** モデルで組み立て |
-| partialbuild | モデル除外寄りの部分ビルド |
+| regenerate-lock | lock 再生成 |
+| fullbuild | `npm ci` + small/medium/**turbo** |
+| partialbuild | モデル除外寄り |
 
 ## ロードマップ
 
-| Phase | 内容 | 状態 |
-| --- | --- | --- |
-| 0–3 | Critical / ピン / リファクタ / Electron 43 | **完了** |
-| 4 | モデル（turbo）・VAD・npm ci | **本変更** |
-| 5 | 配布・ライセンス・fuses | 予定 |
-
-## 今後の課題
-
-1. LICENSE / サードパーティ通知（FFmpeg 非同梱）
-2. Electron fuses
-3. 実機で turbo vs medium の体感時間・WER を確認
-4. 必要なら large-v3 フルを第4オプションに追加
+| Phase | 状態 |
+| --- | --- |
+| 0–3 | **完了** |
+| 4 モデル効率化（turbo・VAD・catalog） | **完了寄り** |
+| 5 配布・ライセンス・fuses | 予定 |
