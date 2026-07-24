@@ -1,10 +1,10 @@
 {
   "name": "AITranscribe-Electron",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "AIで文字起こしを行うためのソフトウェアです（エアギャップ向け）",
   "main": "./src/main.js",
   "engines": {
-    "node": ">=20 <21"
+    "node": ">=24 <25"
   },
   "scripts": {
     "start": "chcp 65001 && electron .",
@@ -34,9 +34,9 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@electron/asar": "3.2.14",
-    "electron": "37.2.3",
-    "electron-builder": "26.0.12"
+    "@electron/asar": "3.2.18",
+    "electron": "43.2.0",
+    "electron-builder": "26.15.7"
   },
   "dependencies": {}
 }

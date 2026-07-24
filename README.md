@@ -11,17 +11,17 @@ Faster-Whisper を用いて **オフライン（エアギャップ）** で音�
 - 実行時に **インターネットへアクセスしません**（モデル・Python・FFmpeg はすべてローカル配置）
 - 音声は FFmpeg で 16kHz WAV に変換したあと、埋め込み Python 上の Faster-Whisper で文字起こしし、CSV を出力します
 
-## ピン留め方針（Phase 1）
+## ピン留め方針（Phase 3）
 
-**メジャー上げは別 Phase。** ここでは再現性のためバージョンを固定します。
+再現性のためバージョンを固定します。Electron / Node はサポート対象 major へ更新済みです。
 
 | コンポーネント | 固定バージョン | 備考 |
 | --- | --- | --- |
-| Node.js（開発 / CI） | **20.18.1**（`engines`: `>=20 <21`） | Phase 3 で 24 LTS へ |
-| Electron | **37.2.3** | Phase 3 でサポート対象 major へ |
-| electron-builder | **26.0.12** | Electron 37 と組み合わせ固定 |
-| @electron/asar | **3.2.14** | |
-| Python Embeddable | **3.11.4** amd64 | |
+| Node.js（開発 / CI） | **24.18.0**（`engines`: `>=24 <25`） | Active LTS（〜2028-04） |
+| Electron | **43.2.0** | Chromium 150 / Node 24.18（公式サポート major） |
+| electron-builder | **26.15.7** | 26.x 最新。27.x は Node >=22.12 + breaking のため見送り |
+| @electron/asar | **3.2.18** | |
+| Python Embeddable | **3.11.4** amd64 | Phase 4 で再評価 |
 | faster-whisper | **1.2.1**（`requirements-whisper.txt`） | master tarball 禁止 |
 | モデル（取得元） | **Systran/faster-whisper-small** / **medium** | ローカル dir として配置 |
 
@@ -30,7 +30,7 @@ Faster-Whisper を用いて **オフライン（エアギャップ）** で音�
 npm install
 
 # オンライン機 — Embeddable 上の pip
-.\src\Whisper\python.exe -m pip install -r requirements-whisper.txt
+.\\src\\Whisper\\python.exe -m pip install -r requirements-whisper.txt
 ```
 
 `package-lock.json` をコミット対象にし、CI / ローカルとも可能な限り lock に従ってください。
@@ -88,12 +88,22 @@ src/Whisper/
 
 ## ディレクトリ構造（アプリ）
 
-- `src/main.js` … メインプロセス
-- `src/preload.js` … IPC
-- `src/renderer.js` / `progressbar.js` / `index.html` … UI
-- `src/Whisper/` … オフラインランタイム配置場所
-- `requirements-whisper.txt` … pip ピン
-- `src/Transcribe-Suppoter/` … CSV 突き合わせ補助 UI
+```
+src/
+  main.js                 # メインプロセス（薄い配線）
+  main/
+    runtime.js            # RuntimeLayout（パス・preflight）
+    jobs/transcribe.js    # TranscribeJob（FFmpeg→Whisper→CSV）
+    utils/                # time / fs-temp
+  shared/channels.js      # IPC 名の単一ソース
+  preload.js
+  renderer.js             # UIController
+  progressbar.js
+  index.html
+  Whisper/                # オフラインランタイム配置場所
+  Transcribe-Suppoter/    # CSV 突き合わせ補助 UI
+requirements-whisper.txt
+```
 
 ## ローカル開発
 
@@ -103,6 +113,8 @@ npm install
 npm start
 ```
 
+Node.js **24 LTS** を推奨します（`engines`: `>=24 <25`）。
+
 ## ビルド（Windows）
 
 ```bash
@@ -111,11 +123,19 @@ npm run build_win
 
 `asar: false` のため、成果物側でも `Whisper` に同じレイアウトでランタイムを置けます。
 
+## セキュリティ（Electron）
+
+- `contextIsolation: true`
+- `nodeIntegration: false`
+- `sandbox: true`
+- preload + `contextBridge` のみで API を公開
+- 子プロセスは `shell: false` + 引数配列（インジェクション回避）
+
 ## GitHub Actions
 
 | Workflow | 内容 |
 | --- | --- |
-| fullbuild | ピン済み Node / pip / Systran モデルでフル組み立て（要ネット） |
+| fullbuild | ピン済み Node 24 / pip / Systran モデルでフル組み立て（要ネット） |
 | partialbuild | モデル除外寄りの部分ビルド |
 
 現場（エアギャップ）では **成果物 + 事前構築した Whisper 一式** を媒体で持ち込みます。
@@ -124,19 +144,20 @@ npm run build_win
 
 入力音声と同じディレクトリに、タイムスタンプ付き CSV を出力します。
 
-## ロードマップ（要約）
+## ロードマップ
 
 | Phase | 内容 | 状態 |
 | --- | --- | --- |
-| 0 | Critical バグ修正・エアギャップ仕様明文化 | 完了 |
-| 1 | バージョンピン留め（本 README の表） | 本変更 |
-| 2 | リファクタ（挙動維持） | 予定 |
-| 3 | Electron / Node セキュリティ更新 | 予定 |
+| 0 | Critical バグ修正・エアギャップ仕様明文化 | **完了** |
+| 1 | バージョンピン留め（凍結） | **完了** |
+| 2 | リファクタ（channels / Job / Runtime / UI / Supporter） | **完了** |
+| 3 | Electron 43 / Node 24 セキュリティ更新 | **本変更** |
 | 4 | Python / faster-whisper の計画的更新 | 予定 |
-| 5 | 配布・ライセンス文書 | 予定 |
+| 5 | 配布・ライセンス文書・fuses | 予定 |
 
 ## 今後の課題
 
-1. Transcribe-Supporter の機能向上
-2. LICENSE / サードパーティ通知
-3. Phase 3 以降の Electron 43 + Node 24 など
+1. `package-lock.json` を Node 24 環境で再生成してコミット（本 PR 後すぐ）
+2. LICENSE / サードパーティ通知（FFmpeg 非同梱の案内）
+3. Electron fuses（node CLI 無効など）
+4. Phase 4: faster-whisper / pip lock / Python パッチ版の再評価
