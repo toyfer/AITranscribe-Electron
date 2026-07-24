@@ -1,76 +1,114 @@
-document.addEventListener('DOMContentLoaded', function () {
-    // CSVファイルの選択と処理
-    document.getElementById('csvFileInput').addEventListener('change', handleCSVFile);
+document.addEventListener("DOMContentLoaded", function () {
+  document.getElementById("csvFileInput").addEventListener("change", handleCSVFile);
+  document.getElementById("audioFileInput").addEventListener("change", handleAudioFile);
+  document.addEventListener("click", handleTextLinkClick);
 
-    // 音声ファイルの選択と再生
-    document.getElementById('audioFileInput').addEventListener('change', handleAudioFile);
+  /**
+   * Split one CSV line respecting double-quoted fields (commas inside text).
+   * Whisper text often contains commas; simple split(',') breaks columns.
+   */
+  function parseCsvLine(line) {
+    const columns = [];
+    let current = "";
+    let inQuotes = false;
 
-    // テキストリンクのクリックイベント
-    document.addEventListener('click', handleTextLinkClick);
-
-    // CSVファイルを読み込んだ時に実行
-    async function handleCSVFile(e) {
-        const file = e.target.files[0];
-        // UTF-8をデフォルトで想定
-        const text = await readFileAsText(file);
-
-        const lines = text.split('\n');
-        const filteredLines = lines.filter(Boolean);
-
-        let tableRows = '';
-        for (let i = 0; i < filteredLines.length; i++) {
-            const line = filteredLines[i];
-            const columns = line.split(',');
-
-            if (i === 0) {
-                continue; // ヘッダー行はスキップする
-            }
-
-            const point = columns[0];
-            const start = parseInt(columns[1], 10);
-            const end = parseInt(columns[2], 10);
-            const text = columns[3];
-
-            // テーブルを生成し、テキストリンクを追加する
-            tableRows += `<tr data-start="${start}"><td>${point}</td><td>${start}</td><td>${end}</td><td class="text-link text-primary" data-start="${start}">${text}</td></tr>`;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i += 1;
+        } else {
+          inQuotes = !inQuotes;
         }
+      } else if (ch === "," && !inQuotes) {
+        columns.push(current);
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    columns.push(current);
+    return columns;
+  }
 
-        // 生成したテーブル行を挿入する
-        document.getElementById('csvTableBody').innerHTML = tableRows;
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  async function handleCSVFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const text = await readFileAsText(file);
+    const lines = text.split(/\r?\n/).filter(Boolean);
+
+    let tableRows = "";
+    for (let i = 0; i < lines.length; i++) {
+      const columns = parseCsvLine(lines[i]);
+
+      if (i === 0) {
+        // header: point,start,end,text
+        continue;
+      }
+
+      const point = columns[0] ?? "";
+      // Whisper start/end are fractional seconds — parseFloat (not parseInt)
+      const start = parseFloat(columns[1]);
+      const end = parseFloat(columns[2]);
+      const cellText = columns.slice(3).join(",") ?? "";
+
+      if (Number.isNaN(start)) continue;
+
+      const startAttr = String(start);
+      tableRows +=
+        `<tr data-start="${escapeHtml(startAttr)}">` +
+        `<td>${escapeHtml(point)}</td>` +
+        `<td>${escapeHtml(String(start))}</td>` +
+        `<td>${escapeHtml(Number.isNaN(end) ? "" : String(end))}</td>` +
+        `<td class="text-link text-primary" data-start="${escapeHtml(startAttr)}">${escapeHtml(cellText)}</td>` +
+        `</tr>`;
     }
 
-    // 音声ファイルを選択したときの処理を実行する関数
-    function handleAudioFile(e) {
-        const file = e.target.files[0];
-        const audioPlayer = document.getElementById('audio');
-        audioPlayer.src = URL.createObjectURL(file); // 音声ファイルのURLを設定する
-        audioPlayer.controls = true; // オーディオプレイヤーのコントロールを有効にする
+    document.getElementById("csvTableBody").innerHTML = tableRows;
+  }
+
+  function handleAudioFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const audioPlayer = document.getElementById("audio");
+    audioPlayer.src = URL.createObjectURL(file);
+    audioPlayer.controls = true;
+  }
+
+  function handleTextLinkClick(e) {
+    if (e.target.classList.contains("text-link")) {
+      const start = parseFloat(e.target.getAttribute("data-start"));
+      if (Number.isNaN(start)) return;
+      const audio = document.getElementById("audio");
+      if (!audio || !audio.src) {
+        alert("先に音声ファイルを選択してください");
+        return;
+      }
+      audio.currentTime = start;
+      audio.play();
     }
+  }
 
-    // テキストリンクがクリックされた時の処理を実行する関数
-    function handleTextLinkClick(e) {
-        if (e.target.classList.contains('text-link')) {
-            const start = e.target.getAttribute('data-start');
-            // クリックされたテキストリンクの位置から再生を開始する
-            document.querySelector('audio').currentTime = start;
-            document.querySelector('audio').play();
-        }
-    }
-
-    // ファイルをテキストとして読み込む関数
-    function readFileAsText(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-
-            reader.onload = function (e) {
-                resolve(e.target.result);
-            };
-
-            reader.onerror = function (e) {
-                reject(e);
-            };
-
-            reader.readAsText(file); // ファイルを指定したエンコーディングで読み込む
-        });
-    }
+  function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = function (ev) {
+        resolve(ev.target.result);
+      };
+      reader.onerror = function (ev) {
+        reject(ev);
+      };
+      reader.readAsText(file, "UTF-8");
+    });
+  }
 });
