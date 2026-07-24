@@ -42,5 +42,7 @@ src/Whisper/log.csv
 
 # Model weights (keep directory via .gitkeep only)
 src/Whisper/models/small/
+src/Whisper/models/turbo/
 src/Whisper/models/medium/
+src/Whisper/models/large-v3/
 !src/Whisper/models/.gitkeep

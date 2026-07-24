@@ -25,12 +25,13 @@
             <div class="row">
                 <div class="col">
                     <div class="form-floating">
-                        <select class="form-select" aria-label="select-model-aria" id="select-model">
-                            <option value="1" selected>速度重視[0.7倍速]</option>
-                            <option value="2">精度重視[1.3倍速]</option>
-                        </select>
-                        <label for="select-model">精度の選択</label>
+                        <!-- options are filled by UIController (MODEL_CATALOG) -->
+                        <select class="form-select" aria-label="select-model-aria" id="select-model"></select>
+                        <label for="select-model">モデルの選択</label>
                     </div>
+                    <p class="form-text text-muted small mb-0" id="model-hint">
+                        推奨: turbo（large-v3 相当の精度を少ない計算量で）。配置は README 参照。
+                    </p>
                     <hr>
                 </div>
 

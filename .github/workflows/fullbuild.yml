@@ -30,9 +30,10 @@ jobs:
       - name: Python Embeddable Download (pinned 3.11.4)
         run: Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
 
-      - name: Faster-Whisper models (Systran CTranslate2, local dirs)
+      - name: Faster-Whisper models (CTranslate2 local dirs)
         run: |
           git clone --depth 1 https://huggingface.co/Systran/faster-whisper-small .\src\Whisper\models\small\
+          git clone --depth 1 https://huggingface.co/mobiuslabsgmbh/faster-whisper-large-v3-turbo .\src\Whisper\models\turbo\
           git clone --depth 1 https://huggingface.co/Systran/faster-whisper-medium .\src\Whisper\models\medium\
 
       - name: Setup FFmpeg + Embeddable + pinned pip deps
