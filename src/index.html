@@ -26,11 +26,15 @@
                 <div class="col">
                     <div class="form-floating">
                         <select class="form-select" aria-label="select-model-aria" id="select-model">
-                            <option value="1" selected>速度重視[0.7倍速]</option>
-                            <option value="2">精度重視[1.3倍速]</option>
+                            <option value="1">速度重視 small（軽量・CPU向け）</option>
+                            <option value="2" selected>バランス medium（従来の精度重視）</option>
+                            <option value="3">効率重視 turbo（large-v3級・高速）</option>
                         </select>
-                        <label for="select-model">精度の選択</label>
+                        <label for="select-model">モデルの選択</label>
                     </div>
+                    <p class="text-muted small mt-1 mb-0">
+                        turbo は large-v3 由来でデコーダを軽量化したモデルです。日本語対応。配置は README / docs/models.md 参照。
+                    </p>
                     <hr>
                 </div>
 

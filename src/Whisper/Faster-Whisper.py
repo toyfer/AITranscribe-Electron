@@ -33,7 +33,10 @@ if not os.path.isfile(file_path):
 
 # local_files_only 相当: パス指定の WhisperModel はローカルのみ参照
 # （ネットから取りに行かせない運用。モデルは事前配置すること）
-model = WhisperModel(models_path, device="cpu", compute_type="int8")
+# CPU air-gap: int8。GPU がある場合は環境変数 AITRANSCRIBE_DEVICE / AITRANSCRIBE_COMPUTE で上書き可
+device = os.environ.get("AITRANSCRIBE_DEVICE", "cpu")
+compute_type = os.environ.get("AITRANSCRIBE_COMPUTE", "int8")
+model = WhisperModel(models_path, device=device, compute_type=compute_type)
 
 # 使用者ログ（Whisper ディレクトリ直下）
 logfile_dir = os.path.dirname(os.path.abspath(__file__))
@@ -47,12 +50,16 @@ except OSError:
 
 with open(logfile_path, "a", encoding="utf-8-sig", newline="") as log:
     writer = csv.writer(log)
-    writer.writerow([file_path, models_path, file_size, start_time, host, ip])
+    writer.writerow([file_path, models_path, file_size, start_time, host, ip, device, compute_type])
 
+# vad_filter: 無音区間を落として幻覚・無駄計算を減らす（Silero VAD・fw 1.2.x）
+# language=ja 固定（日本語用途。自動検出のオーバーヘッド回避）
 result, _ = model.transcribe(
     file_path,
     beam_size=5,
     language="ja",
+    vad_filter=True,
+    vad_parameters=dict(min_silence_duration_ms=500),
 )
 
 with open(f"{file_path}.csv", "w", encoding="utf-8-sig", newline="") as f:
