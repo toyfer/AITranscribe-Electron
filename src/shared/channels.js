@@ -6,6 +6,7 @@
  * Keep string values in sync with the constants in src/preload.js.
  *
  * Phase 2: string literals centralized; wire protocol unchanged.
+ * Measured progress: PROCESS_PROGRESS added for structured job updates.
  */
 const CHANNELS = Object.freeze({
   // renderer → main (invoke / handle)
@@ -19,6 +20,8 @@ const CHANNELS = Object.freeze({
   // main → renderer (send / on)
   RETURN_COMMAND: "return:Command",
   PROCESS_MESSAGE: "process:Message",
+  /** Structured progress / timing (object payload). */
+  PROCESS_PROGRESS: "process:Progress",
 });
 
 module.exports = { CHANNELS };

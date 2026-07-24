@@ -14,6 +14,7 @@ const EXECUTE_RUN_FFMPEG = "execute:runFFmpeg";
 const EXECUTE_RUN_WHISPER = "execute:runWhisper";
 const RETURN_COMMAND = "return:Command";
 const PROCESS_MESSAGE = "process:Message";
+const PROCESS_PROGRESS = "process:Progress";
 
 contextBridge.exposeInMainWorld("electronAPI", {
   openFile: () => ipcRenderer.invoke(DIALOG_OPEN_FILE),
@@ -22,4 +23,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   runWhisper: (args) => ipcRenderer.send(EXECUTE_RUN_WHISPER, args),
   returnCommand: (callback) => ipcRenderer.on(RETURN_COMMAND, callback),
   processMessage: (callback) => ipcRenderer.on(PROCESS_MESSAGE, callback),
+  /** Measured progress / phase / timing (object from main). */
+  processProgress: (callback) => ipcRenderer.on(PROCESS_PROGRESS, callback),
 });
