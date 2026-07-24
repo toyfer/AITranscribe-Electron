@@ -4,6 +4,8 @@ import sys
 import os
 import datetime
 import socket
+import csv
+
 
 # 標準出力のエンコードを変更します
 sys.stdout.reconfigure(encoding="utf-8")
@@ -43,8 +45,9 @@ try:
 except OSError:
     ip = "unknown"
 
-with open(logfile_path, "a", encoding="utf-8-sig") as log:
-    log.write(f"{file_path},{models_path},{file_size},{start_time},{host},{ip}\n")
+with open(logfile_path, "a", encoding="utf-8-sig", newline="") as log:
+    writer = csv.writer(log)
+    writer.writerow([file_path, models_path, file_size, start_time, host, ip])
 
 result, _ = model.transcribe(
     file_path,
@@ -52,13 +55,14 @@ result, _ = model.transcribe(
     language="ja",
 )
 
-with open(f"{file_path}.csv", "w", encoding="utf-8-sig") as f:
-    f.write("point,start,end,text\n")
+with open(f"{file_path}.csv", "w", encoding="utf-8-sig", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["point", "start", "end", "text"])
 
     text_old = ""
 
     for segments in result:
         if text_old != segments.text:
-            f.write(f"{segments.id},{segments.start},{segments.end},{segments.text}\n")
+            writer.writerow([segments.id, segments.start, segments.end, segments.text])
             print(f"[{segments.start}s --> {segments.end}s]:{segments.text}")
             text_old = segments.text
