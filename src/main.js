@@ -18,6 +18,7 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // sandbox: true は維持。preload は electron のみ require すること（./shared 禁止）
       sandbox: true,
     },
   });
@@ -71,7 +72,11 @@ app.on("window-all-closed", function () {
 });
 
 async function handleFileOpen() {
-  const { canceled, filePaths } = await dialog.showOpenDialog({
+  const browserWindow =
+    mainWindow && !mainWindow.isDestroyed() ? mainWindow : BrowserWindow.getFocusedWindow();
+
+  const dialogOpts = {
+    title: "音声ファイルを選択",
     properties: ["openFile"],
     filters: [
       {
@@ -80,8 +85,15 @@ async function handleFileOpen() {
       },
       { name: "All Files", extensions: ["*"] },
     ],
-  });
-  if (!canceled) {
+  };
+
+  // 親ウィンドウを渡すとモーダルになり、背面に隠れて「出ない」ように見える問題を防ぐ
+  const result = browserWindow
+    ? await dialog.showOpenDialog(browserWindow, dialogOpts)
+    : await dialog.showOpenDialog(dialogOpts);
+
+  const { canceled, filePaths } = result;
+  if (!canceled && filePaths && filePaths.length > 0) {
     return filePaths[0];
   }
   return null;

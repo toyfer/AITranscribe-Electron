@@ -57,6 +57,18 @@ class UIController {
     this.audioDuration = 0;
     this.progressBar = new ProgressBar();
 
+    if (!window.electronAPI) {
+      const msg =
+        "[System] preload が読み込めていません（window.electronAPI が未定義）。" +
+        "sandbox preload で app モジュールを require していないか確認してください。";
+      console.error(msg);
+      if (this.outputTextareaElement) {
+        this.outputTextareaElement.value = msg + "\n";
+      }
+      alert("内部エラー: ファイル選択 API が利用できません。アプリを再起動するか、開発者へ報告してください。");
+      return;
+    }
+
     this.#populateModelSelect();
     this.#bindEvents();
     this.#bindIpc();
@@ -116,10 +128,16 @@ class UIController {
   }
 
   async #pickAudioFile() {
-    const filePath = await window.electronAPI.openFile();
-    if (filePath) {
-      this.filePathElement.value = filePath;
-      this.audioFile.src = filePath;
+    try {
+      const filePath = await window.electronAPI.openFile();
+      if (filePath) {
+        this.filePathElement.value = filePath;
+        // file:// プロトコルでローカルパスを読む（Windows パスはそのままで可）
+        this.audioFile.src = filePath.startsWith("file:") ? filePath : `file:///${filePath.replace(/\\/g, "/")}`;
+      }
+    } catch (err) {
+      console.error(err);
+      alert(`ファイル選択に失敗しました: ${err && err.message ? err.message : err}`);
     }
   }
 
