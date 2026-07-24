@@ -1,55 +1,63 @@
-# Faster-Whisperの実行に必要なライブラリ
+# Faster-Whisper の実行（エアギャップ想定: モデルはローカルパスのみ使用）
 from faster_whisper import WhisperModel
-import logging
 import sys
 import os
 import datetime
-
-# 標準出力のエンコードを変更します
-sys.stdout.reconfigure(encoding='utf-8')
-
-# log取得に必要なライブラリ
 import socket
 
-# 実行時間の計測をスタートします
+# 標準出力のエンコードを変更します
+sys.stdout.reconfigure(encoding="utf-8")
+
 start_time = datetime.datetime.now()
 
-# AITranscribe-Electronの引数を取得します
 args = sys.argv
 
-# 引数[1]はモデルのパスです
-models_path = args[1]
+# 引数[1] はローカルモデルディレクトリ（HF キャッシュからコピーした CTranslate2 モデル）
+# 引数[2] は処理する音声ファイル（WAV）のパス
+if len(args) < 3:
+    print("Usage: Faster-Whisper.py <model_dir> <wav_path>", file=sys.stderr)
+    sys.exit(2)
 
-# 引数[2]は処理する音声ファイルのパスです
+models_path = args[1]
 file_path = args[2]
 
-# 使用するモデルを決定します
+if not os.path.isdir(models_path):
+    print(f"Model directory not found: {models_path}", file=sys.stderr)
+    sys.exit(1)
+
+if not os.path.isfile(file_path):
+    print(f"Audio file not found: {file_path}", file=sys.stderr)
+    sys.exit(1)
+
+# local_files_only 相当: パス指定の WhisperModel はローカルのみ参照
+# （ネットから取りに行かせない運用。モデルは事前配置すること）
 model = WhisperModel(models_path, device="cpu", compute_type="int8")
 
-# 使用者のログと記録を取ります
-logfile_path = os.path.dirname(__file__)
+# 使用者ログ（Whisper ディレクトリ直下）
+logfile_dir = os.path.dirname(os.path.abspath(__file__))
+logfile_path = os.path.join(logfile_dir, "log.csv")
 file_size = os.path.getsize(file_path)
 host = socket.gethostname()
-ip = socket.gethostbyname(host)
-with open(f"{logfile_path}log.csv","a", encoding="utf_8_sig") as log:
+try:
+    ip = socket.gethostbyname(host)
+except OSError:
+    ip = "unknown"
+
+with open(logfile_path, "a", encoding="utf-8-sig") as log:
     log.write(f"{file_path},{models_path},{file_size},{start_time},{host},{ip}\n")
 
-# 推論を開始します
 result, _ = model.transcribe(
-    file_path
-    ,beam_size=5
-    ,language="ja"
-    )
+    file_path,
+    beam_size=5,
+    language="ja",
+)
 
-# 推論の結果を格納してファイルに出力
-with open(f"{file_path}.csv", "w", encoding="utf-8_sig") as f:
+with open(f"{file_path}.csv", "w", encoding="utf-8-sig") as f:
     f.write("point,start,end,text\n")
 
     text_old = ""
 
-    # 書き起こし結果を出力ファイルに書き込みます
     for segments in result:
-        # 推論が重複している場合はCSVに記述しない
         if text_old != segments.text:
             f.write(f"{segments.id},{segments.start},{segments.end},{segments.text}\n")
             print(f"[{segments.start}s --> {segments.end}s]:{segments.text}")

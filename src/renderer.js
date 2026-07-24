@@ -1,130 +1,88 @@
-// TODO:関数と手続き型の処理の整理を行う
-
 // 共通要素
-const outputTextareaElement = document.getElementById('output-textarea'); // コンソール出力要素
-var audioFile = new Audio(); // オーディオファイルのオブジェクト
-var audioDuration = 0; // オーディオファイルの秒数初期値
-var intervalId; // インターバルタイマー
+const outputTextareaElement = document.getElementById("output-textarea");
+var audioFile = new Audio();
+var audioDuration = 0;
 var progressBar = new ProgressBar();
 
-// ファイル選択要素
-const fileSelectButton = document.getElementById('file-select-button'); // ファイル選択ボタン要素
-const filePathElement = document.getElementById('file-path'); // ファイルパス表示欄要素
+const fileSelectButton = document.getElementById("file-select-button");
+const filePathElement = document.getElementById("file-path");
+const selectModelElement = document.getElementById("select-model");
+const runFFmpegButton = document.getElementById("run-ffmpeg");
 
-// ファイルのパス取得関数
-async function getAudioFilePath(inputFilePathElement) {
-    const filePath = await window.electronAPI.openFile();
-    if (filePath) {
-        inputFilePathElement.value = filePath;
-        audioFile.src = filePath;
-    } else {
-        return;
-    }
+async function getAudioFilePath() {
+  const filePath = await window.electronAPI.openFile();
+  if (filePath) {
+    filePathElement.value = filePath;
+    // file:// でメタデータ取得（ローカルパス）
+    audioFile.src = filePath;
+  }
 }
 
-// ファイル選択ボタンクリックをリッスン
-fileSelectButton.addEventListener('click', () => getAudioFilePath(filePathElement));
-// ファイルパス表示欄クリックをリッスン
-filePathElement.addEventListener('click', () => getAudioFilePath(filePathElement));
+fileSelectButton.addEventListener("click", () => getAudioFilePath());
+filePathElement.addEventListener("click", () => getAudioFilePath());
 
-// 読み込んだ音声ファイルの秒数を取得するリッスン
-audioFile.addEventListener('loadedmetadata', function () {
-    console.log(this.duration); // デバッグ用としてコンソールに値を返す
-    audioDuration = this.duration; // 読み込んだ音声ファイルの秒数を代入
+audioFile.addEventListener("loadedmetadata", function () {
+  console.log(this.duration);
+  audioDuration = this.duration;
 });
 
-// 秒数をhh:mm:ssに変換する関数
-function formatTime(seconds) {
-    let hours = Math.floor(seconds / 3600);
-    let minutes = Math.floor((seconds % 3600) / 60);
-    let remainingSeconds = seconds % 60;
-    let formattedHours = hours < 10 ? "0" + hours : hours;
-    let formattedMinutes = minutes < 10 ? "0" + minutes : minutes;
-    let formattedSeconds = remainingSeconds < 10 ? "0" + remainingSeconds : remainingSeconds;
-    return formattedHours + ":" + formattedMinutes + ":" + formattedSeconds;
+function setUiBusy(isBusy) {
+  runFFmpegButton.disabled = isBusy;
+  runFFmpegButton.innerText = isBusy ? "処理中です…" : "スタート";
+  filePathElement.disabled = isBusy;
+  fileSelectButton.disabled = isBusy;
+  selectModelElement.disabled = isBusy;
 }
 
-// コマンド実行要素
-const selectModelElement = document.getElementById('select-model'); // 精度選択要素
+function selectModelConfig(modelValue, durationSec) {
+  switch (modelValue) {
+    case "1":
+      return {
+        model: "Whisper\\models\\small",
+        script: "Whisper\\Faster-Whisper.py",
+        // 元の audioDuration は変更しない（連続実行で倍率が積み上がるのを防ぐ）
+        estimatedDuration: durationSec * 0.7,
+      };
+    case "2":
+      return {
+        model: "Whisper\\models\\medium",
+        script: "Whisper\\Faster-Whisper.py",
+        estimatedDuration: durationSec * 1.3,
+      };
+    default:
+      return null;
+  }
+}
 
-// FFmpeg&Whisperの実行
-const runFFmpeg = document.getElementById('run-ffmpeg'); // スタートボタン要素
-runFFmpeg.addEventListener('click', () => { // スタートボタンのクリックをリッスン
+runFFmpegButton.addEventListener("click", () => {
+  if (!filePathElement.value) {
+    alert("音声ファイルを選択してください");
+    return;
+  }
 
-    // 条件確認
-    // ファイルの有無確認
-    if (!filePathElement.value) {
-        alert('音声ファイルを選択してください');
-        return;
-    }
+  const selectModel = selectModelConfig(selectModelElement.value, audioDuration || 60);
+  if (!selectModel) {
+    alert("精度を選択してください");
+    return;
+  }
 
-    // モデルの選択確認
-    if (selectModelElement.value == '精度を選択してください') {
-        alert('精度を選択してください')
-        return;
-    }
+  setUiBusy(true);
+  progressBar.startProgress(selectModel.estimatedDuration);
 
-    // console.log(selectModelElement.value); // コンソールに選択されたモデルを表示（デバッグ）
-
-    // モデル選択の分岐
-    // 併せて予想の秒数も計算する
-    const selectModel = (() => {
-        switch (selectModelElement.value) {
-            case '1':
-                audioDuration = audioDuration * 0.7;
-                return {
-                    model: 'Whisper\\models\\small',
-                    script: 'Whisper\\Faster-Whisper.py'
-                };
-            case "2":
-                audioDuration = audioDuration * 1.3;
-                return {
-                    model: 'Whisper\\models\\medium',
-                    script: 'Whisper\\Faster-Whisper.py'
-                }
-        }
-    }
-    )();
-
-    // FFmpegの引数設定(renderer)
-    const FFmpegArgs = filePathElement.value;
-
-    // Whisperの引数設定(rendere)
-    const WhisperArgs = selectModel;
-
-    // 各項目を無効化
-    runFFmpeg.disabled = true;
-    runFFmpeg.innerText = '処理中です…';
-    filePathElement.disabled = true;
-    fileSelectButton.disabled = true;
-    selectModelElement.disabled = true;
-
-    progressBar.startProgress(audioDuration);
-
-    // メインプロセスの実行
-    window.electronAPI.runFFmpeg([FFmpegArgs, WhisperArgs]);
+  window.electronAPI.runFFmpeg([filePathElement.value, selectModel]);
 });
 
-// メインプロセスの標準出力を受け取る
-window.electronAPI.returnCommand((event, output) => {
-    console.log(output);
-    outputTextareaElement.value += output;
-    outputTextareaElement.scrollTop = outputTextareaElement.scrollHeight;
+window.electronAPI.returnCommand((_event, output) => {
+  console.log(output);
+  outputTextareaElement.value += output;
+  outputTextareaElement.scrollTop = outputTextareaElement.scrollHeight;
 });
 
-// メインプロセスの開始・終了通知を受け取る
-window.electronAPI.processMassage((event, massage) => {
-    const notificationTitle = 'Ai文字起こし';
-    const notificationBody = massage;
-    new Notification(notificationTitle, { body: notificationBody });
+// 開始・終了・エラー通知（UI 復帰の単一入口）
+window.electronAPI.processMessage((_event, message) => {
+  const notificationTitle = "Ai文字起こし";
+  new Notification(notificationTitle, { body: message });
 
-    // 各項目を有効化
-    runFFmpeg.disabled = false;
-    runFFmpeg.innerText = 'スタート';
-    filePathElement.disabled = false;
-    fileSelectButton.disabled = false;
-    selectModelElement.disabled = false;
-
-    // プログレスバーの終了
-    progressBar.endProgress(intervalId);
+  setUiBusy(false);
+  progressBar.endProgress(true);
 });
