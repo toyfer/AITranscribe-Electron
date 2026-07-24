@@ -104,7 +104,6 @@ ait_emit(
     }
 )
 
-ait_emit({"type": "phase", "phase": "write"})
 t_infer0 = time.perf_counter()
 last_end = 0.0
 seg_count = 0
@@ -142,6 +141,8 @@ with open(f"{file_path}.csv", "w", encoding="utf-8-sig", newline="") as f:
             )
             text_old = segment.text
 
+t_infer_sec = time.perf_counter() - t_infer0
+
 # 末尾無音などで 100% に届かない場合の締め
 if last_end < progress_denom:
     last_end = progress_denom
@@ -154,12 +155,11 @@ if last_end < progress_denom:
             "duration": round(duration, 3),
             "duration_after_vad": round(duration_after_vad, 3),
             "pct": 100.0,
-            "wall_sec": round(time.perf_counter() - t_infer0, 3),
+            "wall_sec": round(t_infer_sec, 3),
         }
     )
 
-t_infer_sec = time.perf_counter() - t_infer0
-t_write_sec = 0.0  # CSV はループ内で逐次書き込み済み
+ait_emit({"type": "phase", "phase": "write"})
 t_python_sec = time.perf_counter() - t_script0
 rtf_infer = (t_infer_sec / duration) if duration > 0 else None
 rtf_python = (t_python_sec / duration) if duration > 0 else None
@@ -191,7 +191,7 @@ ait_emit(
         "t_load_sec": round(t_load_sec, 3),
         "t_setup_sec": round(t_setup_sec, 3),
         "t_infer_sec": round(t_infer_sec, 3),
-        "t_write_sec": round(t_write_sec, 3),
+        "t_write_sec": 0.0,
         "t_python_sec": round(t_python_sec, 3),
         "duration": round(duration, 3),
         "duration_after_vad": round(duration_after_vad, 3),
