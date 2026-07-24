@@ -13,13 +13,13 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js (pinned major for Phase 1)
+      - name: Set up Node.js (Phase 3 — 24 LTS)
         uses: actions/setup-node@v4
         with:
-          node-version: "20.18.1"
+          node-version: "24.18.0"
           cache: npm
 
-      - name: Install Node.js dependencies (locked)
+      - name: Install Node.js dependencies
         run: npm install
 
       - name: FFmpeg Download (CI assembly only)
