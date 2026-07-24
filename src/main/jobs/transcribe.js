@@ -190,10 +190,14 @@ class TranscribeJob {
       },
     });
 
+    // StringDecoder via setEncoding: avoid splitting multibyte UTF-8 (JP text / JSON)
+    // across data chunk boundaries (toString per Buffer is unsafe).
+    child.stdout.setEncoding("utf8");
     child.stdout.on("data", (data) => {
-      this.#onWhisperStdout(ctx, data.toString("utf8"));
+      this.#onWhisperStdout(ctx, data);
     });
 
+    child.stderr.setEncoding("utf8");
     child.stderr.on("data", (data) => {
       const line = `[${getNow()}:Whisper]${data}`;
       console.log(line);

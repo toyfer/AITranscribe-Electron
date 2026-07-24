@@ -140,12 +140,11 @@ class ProgressBar {
 
   #paint(percent, text, { striped = false } = {}) {
     const p = Math.max(0, Math.min(100, percent));
+    // Visual fill on inner bar; ARIA on outer #progress (role="progressbar")
     this.progressBar.style.width = p + "%";
     this.progressBar.innerText = text || `${p}%`;
-    this.progressBar.setAttribute("aria-valuenow", String(Math.round(p)));
-    this.progressBar.setAttribute("aria-valuemin", "0");
-    this.progressBar.setAttribute("aria-valuemax", "100");
     this.progressBar.setAttribute("style", `width:${p}%`);
+    this.progress.setAttribute("aria-valuenow", String(Math.round(p)));
 
     if (striped) {
       this.progressBar.setAttribute(

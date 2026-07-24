@@ -110,15 +110,12 @@ class UIController {
     window.electronAPI.processMessage((_event, message) => {
       new Notification("Ai文字起こし", { body: message });
       this.setUiBusy(false);
-      // complete イベントが先に endProgress している場合もある
-      if (this.jobBusy || this.progressBar.mode !== "idle") {
-        // processMessage は成功・失敗両方。metrics 付き complete が無い失敗時用
-        if (this.progressBar.mode !== "idle") {
-          const failed = /エラー|失敗|不足|見つかりません/i.test(String(message));
-          this.progressBar.endProgress(!failed);
-        }
+      // complete イベントが先に endProgress 済みなら mode === "idle"
+      // processMessage は成功・失敗両方。metrics 付き complete が無い失敗時用
+      if (this.progressBar.mode !== "idle") {
+        const failed = /エラー|失敗|不足|見つかりません/i.test(String(message));
+        this.progressBar.endProgress(!failed);
       }
-      this.jobBusy = false;
     });
 
     if (typeof window.electronAPI.processProgress === "function") {
