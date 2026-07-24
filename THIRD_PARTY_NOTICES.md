@@ -53,17 +53,15 @@ CI の fullbuild が FFmpeg をダウンロードするのは **オンライン�
 | faster-whisper | MIT — https://github.com/SYSTRAN/faster-whisper |
 | その他 | 各 PyPI パッケージの LICENSE を参照 |
 
-### 2.4 音声認識モデル（weights）
+### 2.4 音声認識モデル（weights）— UI v2.4.0
 
 | UI / ディレクトリ | 取得元例 | ライセンス目安 |
 |-------------------|----------|----------------|
-| `models/small` | Systran/faster-whisper-small | モデルカード記載（多くは MIT 系の変換物。**必ず各ページを確認**） |
-| `models/turbo` | deepdml/faster-whisper-large-v3-turbo-ct2 | 同上 |
-| `models/medium` | Systran/faster-whisper-medium | 同上 |
-| `models/large-v3` | Systran/faster-whisper-large-v3 | 同上 |
+| 速度重視 `models/small` | Systran/faster-whisper-small | モデルカード記載（**必ず各ページを確認**） |
+| 精度重視・既定 `models/turbo` | deepdml/faster-whisper-large-v3-turbo-ct2 | 同上 |
 
-元となった OpenAI Whisper 系モデルの利用条件・禁止用途も、上流のモデルカードと OpenAI の利用規約を確認してください。
-詳細な配置手順: [docs/models.md](./docs/models.md)
+元となった OpenAI Whisper 系モデルの利用条件も、上流のモデルカードと OpenAI の利用規約を確認してください。
+詳細: [docs/models.md](./docs/models.md)
 
 ---
 
@@ -85,6 +83,7 @@ CI の fullbuild が FFmpeg をダウンロードするのは **オンライン�
 | `requirements-whisper.txt` | オフライン pip 再現 |
 
 **Whisper 一式（ffmpeg / python / models）は別媒体・別チェックサムで渡す**運用を推奨します。
+fullbuild 成果物にはオンライン組み立て用に FFmpeg・Python・モデルが含まれる場合がありますが、**再配布時は各ライセンスを別途確認**してください。
 
 ---
 
