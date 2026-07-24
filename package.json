@@ -1,6 +1,6 @@
 {
   "name": "AITranscribe-Electron",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "AIで文字起こしを行うためのソフトウェアです（エアギャップ向け）",
   "main": "./src/main.js",
   "engines": {
