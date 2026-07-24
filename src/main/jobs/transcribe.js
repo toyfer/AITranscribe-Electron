@@ -378,6 +378,14 @@ class TranscribeJob {
     fs.copyFile(job.tempCSV, outFile, (err) => {
       ctx.metrics.tTotal = (Date.now() - ctx.metrics.t0) / 1000;
 
+      // Do not emit complete / success metrics when the output file was not saved.
+      if (err) {
+        this.sendProcessMessage(`[${getNow()}:System]${err}`);
+        safeDeleteFile(job.tempWAV);
+        safeDeleteFile(job.tempCSV);
+        return;
+      }
+
       const audioDur =
         (ctx.metrics.python && ctx.metrics.python.duration) ||
         ctx.audioDurationSec ||
@@ -415,15 +423,13 @@ class TranscribeJob {
         },
       });
 
-      if (err) {
-        this.sendProcessMessage(`[${getNow()}:System]${err}`);
-      } else {
-        const rtfNote =
-          rtfTotal != null ? `\n所要 ${ctx.metrics.tTotal.toFixed(1)}s / RTF ${rtfTotal.toFixed(2)}` : "";
-        this.sendProcessMessage(
-          `[${getNow()}:System]文字起こしが完了しました\n出力: ${outFile}${rtfNote}`
-        );
-      }
+      const rtfNote =
+        rtfTotal != null
+          ? `\n所要 ${ctx.metrics.tTotal.toFixed(1)}s / RTF ${rtfTotal.toFixed(2)}`
+          : "";
+      this.sendProcessMessage(
+        `[${getNow()}:System]文字起こしが完了しました\n出力: ${outFile}${rtfNote}`
+      );
       safeDeleteFile(job.tempWAV);
       safeDeleteFile(job.tempCSV);
     });

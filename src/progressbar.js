@@ -47,9 +47,10 @@ class ProgressBar {
   onProgressEvent(payload) {
     if (!payload || typeof payload !== "object") return;
 
-    // First real event switches off pure fallback ticking for the bar value
+    // First real event: switch off fallback timer (ETA uses inferStartedAt, not elapsedTime)
     if (this.mode === "fallback" || this.mode === "idle") {
       this.mode = "measured";
+      this.#clearTimer();
     }
 
     if (payload.type === "complete") {
@@ -119,8 +120,7 @@ class ProgressBar {
 
   #tickFallback() {
     if (this.mode !== "fallback") {
-      // Still advance a soft elapsed clock for ETA helpers only
-      this.elapsedTime += 1;
+      this.#clearTimer();
       return;
     }
 
