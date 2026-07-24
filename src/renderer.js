@@ -1,7 +1,49 @@
 /**
- * Renderer UI — Phase 2 UIController.
- * Talks only via window.electronAPI (preload). ProgressBar is defined in progressbar.js.
+ * Renderer UI — UIController + MODEL_CATALOG (Phase 4).
+ * Talks only via window.electronAPI (preload). ProgressBar is in progressbar.js.
+ *
+ * Local CTranslate2 dirs under src/Whisper/models/<dir>/ — see docs/models.md.
  */
+
+/**
+ * Single source of truth: UI id ↔ local dir ↔ HF source ↔ progress multiplier.
+ * estimatedDurationMul ≈ CPU int8 wall-time / audio length (rough).
+ */
+const MODEL_CATALOG = Object.freeze([
+  {
+    id: "small",
+    label: "高速 — small（軽量・CPU向け）",
+    dir: "small",
+    hf: "Systran/faster-whisper-small",
+    estimatedDurationMul: 0.7,
+    default: false,
+  },
+  {
+    id: "turbo",
+    label: "効率（推奨）— large-v3-turbo（高精度を効率化）",
+    dir: "turbo",
+    hf: "deepdml/faster-whisper-large-v3-turbo-ct2",
+    estimatedDurationMul: 0.55,
+    default: true,
+  },
+  {
+    id: "medium",
+    label: "精度 — medium（従来のバランス）",
+    dir: "medium",
+    hf: "Systran/faster-whisper-medium",
+    estimatedDurationMul: 1.3,
+    default: false,
+  },
+  {
+    id: "large-v3",
+    label: "最高精度 — large-v3（CPUでは遅い・任意）",
+    dir: "large-v3",
+    hf: "Systran/faster-whisper-large-v3",
+    estimatedDurationMul: 3.0,
+    default: false,
+  },
+]);
+
 class UIController {
   constructor() {
     this.outputTextareaElement = document.getElementById("output-textarea");
@@ -9,19 +51,49 @@ class UIController {
     this.filePathElement = document.getElementById("file-path");
     this.selectModelElement = document.getElementById("select-model");
     this.runFFmpegButton = document.getElementById("run-ffmpeg");
+    this.modelHintElement = document.getElementById("model-hint");
 
     this.audioFile = new Audio();
     this.audioDuration = 0;
     this.progressBar = new ProgressBar();
 
+    this.#populateModelSelect();
     this.#bindEvents();
     this.#bindIpc();
+    this.#updateModelHint();
+  }
+
+  #populateModelSelect() {
+    this.selectModelElement.innerHTML = "";
+    for (const entry of MODEL_CATALOG) {
+      const opt = document.createElement("option");
+      opt.value = entry.id;
+      opt.textContent = entry.label;
+      if (entry.default) opt.selected = true;
+      this.selectModelElement.appendChild(opt);
+    }
+  }
+
+  #findModel(id) {
+    return MODEL_CATALOG.find((m) => m.id === id) || null;
+  }
+
+  #updateModelHint() {
+    if (!this.modelHintElement) return;
+    const entry = this.#findModel(this.selectModelElement.value);
+    if (!entry) {
+      this.modelHintElement.textContent = "";
+      return;
+    }
+    this.modelHintElement.textContent =
+      `配置: src/Whisper/models/${entry.dir}/  ← ${entry.hf}（オフライン事前配置・docs/models.md）`;
   }
 
   #bindEvents() {
     this.fileSelectButton.addEventListener("click", () => this.#pickAudioFile());
     this.filePathElement.addEventListener("click", () => this.#pickAudioFile());
     this.runFFmpegButton.addEventListener("click", () => this.#onStart());
+    this.selectModelElement.addEventListener("change", () => this.#updateModelHint());
 
     this.audioFile.addEventListener("loadedmetadata", () => {
       console.log(this.audioFile.duration);
@@ -36,7 +108,6 @@ class UIController {
       this.outputTextareaElement.scrollTop = this.outputTextareaElement.scrollHeight;
     });
 
-    // 開始・終了・エラー通知（UI 復帰の単一入口）
     window.electronAPI.processMessage((_event, message) => {
       new Notification("Ai文字起こし", { body: message });
       this.setUiBusy(false);
@@ -48,7 +119,6 @@ class UIController {
     const filePath = await window.electronAPI.openFile();
     if (filePath) {
       this.filePathElement.value = filePath;
-      // file:// でメタデータ取得（ローカルパス）
       this.audioFile.src = filePath;
     }
   }
@@ -61,37 +131,18 @@ class UIController {
     this.selectModelElement.disabled = isBusy;
   }
 
-  /**
-   * Map UI model value → paths + estimated progress duration.
-   * Does not mutate this.audioDuration (prevents stacked multipliers).
-   *
-   * Multipliers are rough CPU int8 wall-time vs audio length (air-gap PC).
-   * turbo ≈ large-v3 quality with fewer decoder layers → often faster than medium.
-   */
-  selectModelConfig(modelValue, durationSec) {
-    switch (modelValue) {
-      case "1":
-        return {
-          model: "Whisper\\models\\small",
-          script: "Whisper\\Faster-Whisper.py",
-          estimatedDuration: durationSec * 0.7,
-        };
-      case "2":
-        return {
-          model: "Whisper\\models\\medium",
-          script: "Whisper\\Faster-Whisper.py",
-          estimatedDuration: durationSec * 1.3,
-        };
-      case "3":
-        // large-v3-turbo (CTranslate2) — see docs/models.md
-        return {
-          model: "Whisper\\models\\turbo",
-          script: "Whisper\\Faster-Whisper.py",
-          estimatedDuration: durationSec * 0.55,
-        };
-      default:
-        return null;
-    }
+  /** Map catalog id → IPC payload. Does not mutate audioDuration. */
+  selectModelConfig(modelId, durationSec) {
+    const entry = this.#findModel(modelId);
+    if (!entry) return null;
+
+    return {
+      model: `Whisper\\models\\${entry.dir}`,
+      script: "Whisper\\Faster-Whisper.py",
+      estimatedDuration: durationSec * entry.estimatedDurationMul,
+      modelId: entry.id,
+      hf: entry.hf,
+    };
   }
 
   #onStart() {
@@ -115,5 +166,4 @@ class UIController {
   }
 }
 
-// Bootstrap (classic script; ProgressBar already loaded via index.html)
 new UIController();
