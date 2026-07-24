@@ -1,11 +1,8 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, Menu, Notification, webContents } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const os = require("os");
 const fs = require("fs");
-
-// Global variables
-let mainWindow;
 
 // 描写・プリロード関数
 function createWindow() {
@@ -24,13 +21,10 @@ function createWindow() {
 // アプリケーションの準備が完了したらウィンドウを作成
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null); // デフォルトのメニューを非表示
-  ipcMain.handle("dialog:openFile", handleFileOpen); // ファイル選択のリッスン
-  ipcMain.on("execute:runFFmpeg", runFFmpeg); // FFmpeg用リッスン
-  ipcMain.on("execute:runWhisper", runWhisper); // Whisper用リッスン（使わない）
+  ipcMain.handle("dialog:openFile", handleFileOpen); // ファイル選択のIPCリッスン
+  ipcMain.on("execute:runFFmpeg", runFFmpeg); // FFmpeg用のIPCリッスン
+  ipcMain.on("execute:runWhisper", runWhisper); // Whisper用のIPCリッスン（使わない）
   createWindow(); // ウィンドウ作成
-  app.on("activate", function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
   mainWindow.webContents.send(
     "process:Massage",
     `[${getNow()}:System]システムを起動しました`
@@ -61,17 +55,11 @@ const tempCSV = `${tempWAV}.csv`; // Whisperで出力されるCSVファイルの
 
 // FFmpegの実行
 function runFFmpeg(_event, args) {
-  // Cross-platform executable path handling
-  const isWindows = process.platform === 'win32';
-  const ffmpegExe = isWindows ? 'ffmpeg.exe' : 'ffmpeg';
-  const ffmpegPath = path.join(__dirname, 'Whisper', ffmpegExe);
-  
-  const FFmpegArgs = `"${ffmpegPath}" -y -i "${args[0]}" -ar 16000 "${tempWAV}"`;
-  const command = isWindows ? `chcp 65001 && ${FFmpegArgs}` : FFmpegArgs;
-  
-  const process = spawn(command, [], {
+  const FFmpegArgs = `${path.join(__dirname, "Whisper\\ffmpeg.exe")} -y -i ${args[0]
+    } -ar 16000 ${tempWAV}`;
+  const process = spawn(`chcp 65001 > nul && ${FFmpegArgs}`, [], {
     shell: true,
-    windowsVerbatimArguments: isWindows,
+    windowsVerbatimArguments: true,
   });
   console.log(FFmpegArgs);
 
@@ -114,17 +102,16 @@ function runFFmpeg(_event, args) {
 
 // Whisperの実行
 function runWhisper(args) {
-  // Cross-platform executable path handling
-  const isWindows = process.platform === 'win32';
-  const pythonExe = isWindows ? 'python.exe' : 'python';
-  const pythonPath = path.join(__dirname, 'Whisper', pythonExe);
-  
-  const WhisperArgs = `"${pythonPath}" "${path.join(__dirname, args[1].script)}" "${path.join(__dirname, args[1].model)}" "${tempWAV}"`;
-  const command = isWindows ? `chcp 65001 && ${WhisperArgs}` : WhisperArgs;
-  
-  const process = spawn(command, [], {
+  const WhisperArgs = `${path.join(
+    __dirname,
+    "Whisper\\python.exe"
+  )} ${path.join(__dirname, args[1].script)} ${path.join(
+    __dirname,
+    args[1].model
+  )} ${tempWAV}`;
+  const process = spawn(`chcp 65001 > nul && ${WhisperArgs}`, [], {
     shell: true,
-    windowsVerbatimArguments: isWindows,
+    windowsVerbatimArguments: true,
   });
 
   // 標準出力
@@ -195,7 +182,7 @@ function runAdjustment(args) {
 }
 
 // 時刻の取得関数
-function getNow(pathFlag = null) {
+function getNow(pathFlag = false) {
   const now = new Date();
 
   const year = now.getFullYear();
@@ -212,11 +199,13 @@ function getNow(pathFlag = null) {
   }
 }
 
-// ランダム文字列を生成する関数（一時ファイル用）
+// 引数で指定されて文字数分ランダム文字列を生成して返す関数（一時ファイル用）
 function generateRandomString(length) {
-  return [
-    ...Array(length)
-      .map(() => Math.random().toString(36)[2])
-      .join(""),
-  ];
+  let result = '';
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const charactersLength = characters.length;
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
 }
