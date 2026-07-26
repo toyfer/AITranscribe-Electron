@@ -37,10 +37,17 @@ function sendCommandOutput(message) {
   }
 }
 
+function sendProgress(payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(CHANNELS.PROCESS_PROGRESS, payload);
+  }
+}
+
 const transcribeJob = new TranscribeJob({
   runtime,
   sendProcessMessage,
   sendCommandOutput,
+  sendProgress,
 });
 
 app.whenReady().then(() => {

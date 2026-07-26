@@ -3,11 +3,12 @@
  * Talks only via window.electronAPI (preload). ProgressBar is in progressbar.js.
  *
  * Local CTranslate2 dirs under src/Whisper/models/<dir>/ — see docs/models.md.
+ * Progress: measured events (process:Progress); mul is cold-start fallback only.
  */
 
 /**
- * Single source of truth: UI id ↔ local dir ↔ HF source ↔ progress multiplier.
- * estimatedDurationMul ≈ CPU int8 wall-time / audio length (rough).
+ * Single source of truth: UI id ↔ local dir ↔ HF source ↔ fallback multiplier.
+ * estimatedDurationMul ≈ CPU int8 wall-time / audio length (rough fallback).
  */
 const MODEL_CATALOG = Object.freeze([
   {
@@ -23,7 +24,8 @@ const MODEL_CATALOG = Object.freeze([
     label: "精度重視（デフォルト）— large-v3-turbo",
     dir: "turbo",
     hf: "deepdml/faster-whisper-large-v3-turbo-ct2",
-    estimatedDurationMul: 0.55,
+    // CPU int8 では small より重いのが普通（旧 0.55 は過小になりやすい）
+    estimatedDurationMul: 1.5,
     default: true,
   },
 ]);
@@ -40,6 +42,7 @@ class UIController {
     this.audioFile = new Audio();
     this.audioDuration = 0;
     this.progressBar = new ProgressBar();
+    this.jobBusy = false;
 
     if (!window.electronAPI) {
       const msg =
@@ -82,7 +85,7 @@ class UIController {
       return;
     }
     this.modelHintElement.textContent =
-      `配置: src/Whisper/models/${entry.dir}/  ← ${entry.hf}（オフライン事前配置・docs/models.md）`;
+      `配置: src/Whisper/models/${entry.dir}/  ← ${entry.hf}（オフライン事前配置・docs/models.md） · 進捗は実測ベース`;
   }
 
   #bindEvents() {
@@ -107,8 +110,20 @@ class UIController {
     window.electronAPI.processMessage((_event, message) => {
       new Notification("Ai文字起こし", { body: message });
       this.setUiBusy(false);
-      this.progressBar.endProgress(true);
+      // complete イベントが先に endProgress 済みなら mode === "idle"
+      // processMessage は成功・失敗両方。metrics 付き complete が無い失敗時用
+      if (this.progressBar.mode !== "idle") {
+        const failed = /エラー|失敗|不足|見つかりません/i.test(String(message));
+        this.progressBar.endProgress(!failed);
+      }
     });
+
+    if (typeof window.electronAPI.processProgress === "function") {
+      window.electronAPI.processProgress((_event, payload) => {
+        console.log("[progress]", payload);
+        this.progressBar.onProgressEvent(payload);
+      });
+    }
   }
 
   async #pickAudioFile() {
@@ -128,6 +143,7 @@ class UIController {
   }
 
   setUiBusy(isBusy) {
+    this.jobBusy = isBusy;
     this.runFFmpegButton.disabled = isBusy;
     this.runFFmpegButton.innerText = isBusy ? "処理中です…" : "スタート";
     this.filePathElement.disabled = isBusy;
@@ -140,10 +156,13 @@ class UIController {
     const entry = this.#findModel(modelId);
     if (!entry) return null;
 
+    const dur = Number(durationSec) > 0 ? Number(durationSec) : 60;
+
     return {
       model: `Whisper\\models\\${entry.dir}`,
       script: "Whisper\\Faster-Whisper.py",
-      estimatedDuration: durationSec * entry.estimatedDurationMul,
+      estimatedDuration: dur * entry.estimatedDurationMul,
+      audioDurationSec: dur,
       modelId: entry.id,
       hf: entry.hf,
     };
@@ -165,6 +184,7 @@ class UIController {
     }
 
     this.setUiBusy(true);
+    // fallback timer only until first measured event arrives
     this.progressBar.startProgress(selectModel.estimatedDuration);
     window.electronAPI.runFFmpeg([this.filePathElement.value, selectModel]);
   }
