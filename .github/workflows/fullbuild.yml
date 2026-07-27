@@ -2,6 +2,10 @@ name: FullBuild AITranscribe-Electron for Windows
 
 # Online assembly: npm ci + FFmpeg + Python Embeddable + models + electron-builder.
 # On tag v*: also attach zip to the GitHub Release assets.
+#
+# バージョン管理: package.json は 0.1 固定。
+# 日付と git コミットハッシュでユニーク性を担保。
+# zip ファイル名: AITranscribe-Electron-v0.1-YYYYMMDD-GITSHORT-x64.zip
 
 on:
   workflow_dispatch:
@@ -16,7 +20,17 @@ jobs:
   build:
     runs-on: windows-latest
 
+    env:
+      # ビルド日 (UTC): zip ファイル名に埋め込む
+      BUILD_DATE: ${{ github.event.repository.updated_at && format(github.event.repository.updated_at, 'YYYYMMDD') || github.run_id }}
+      # git コミットハッシュ (短): 配布物のユニーク性
+      GIT_SHORT: ${{ github.sha }}
+
     steps:
+      - name: Set build date from workflow run
+        if: env.BUILD_DATE == ''
+        run: echo "BUILD_DATE=$(Get-Date -Format 'yyyyMMdd')" >> $env:GITHUB_ENV
+
       - name: Check out code
         uses: actions/checkout@v4
 
@@ -54,6 +68,9 @@ jobs:
 
       - name: Build Electron project for Windows
         run: npm run build_win
+        env:
+          BUILD_DATE: ${{ env.BUILD_DATE }}
+          GIT_SHORT: ${{ env.GIT_SHORT }}
 
       - name: List build outputs
         run: Get-ChildItem -Recurse build | Select-Object FullName, Length
