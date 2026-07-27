@@ -28,6 +28,30 @@
         .progress-card .card-body {
             padding: 0.5rem 1rem;
         }
+        /* main を flex コンテナにして残り領域を埋める */
+        .main-area {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        /* .container に height: 100% を明示して flex の高さを確定させる */
+        .main-area > .container {
+            flex: 1 1 0;
+            min-height: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .main-area > .container > .content-wrapper {
+            flex: 1 1 0;
+            min-height: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
         /* ログを残り領域いっぱいに広げる */
         .log-card {
             flex: 1 1 0;
@@ -41,31 +65,12 @@
             display: flex;
             flex-direction: column;
         }
+        /* textarea に height: 100% を明示して flex-grow を確実に機能させる */
         .log-card textarea {
             flex: 1 1 0;
             min-height: 0;
+            height: 100%;
             resize: none;
-        }
-        /* main を flex コンテナにして残り領域を埋める */
-        .main-area {
-            flex: 1 1 0;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .main-area > .container {
-            flex: 1 1 0;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-        }
-        .main-area > .container > .content-wrapper {
-            flex: 1 1 0;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
         }
     </style>
     <title>AI文字起こし</title>
