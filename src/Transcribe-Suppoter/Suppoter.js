@@ -40,6 +40,13 @@ document.addEventListener("DOMContentLoaded", function () {
       .replace(/"/g, "&quot;");
   }
 
+  function formatTime(seconds) {
+    if (Number.isNaN(seconds) || seconds == null) return "";
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  }
+
   async function handleCSVFile(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -68,9 +75,9 @@ document.addEventListener("DOMContentLoaded", function () {
       tableRows +=
         `<tr data-start="${escapeHtml(startAttr)}">` +
         `<td>${escapeHtml(point)}</td>` +
-        `<td>${escapeHtml(String(start))}</td>` +
-        `<td>${escapeHtml(Number.isNaN(end) ? "" : String(end))}</td>` +
-        `<td class="text-link text-primary" data-start="${escapeHtml(startAttr)}">${escapeHtml(cellText)}</td>` +
+        `<td>${escapeHtml(formatTime(start))}</td>` +
+        `<td>${escapeHtml(Number.isNaN(end) ? "" : formatTime(end))}</td>` +
+        `<td class="text-link" data-start="${escapeHtml(startAttr)}">${escapeHtml(cellText)}</td>` +
         `</tr>`;
     }
 
@@ -82,7 +89,6 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!file) return;
     const audioPlayer = document.getElementById("audio");
     audioPlayer.src = URL.createObjectURL(file);
-    audioPlayer.controls = true;
   }
 
   function handleTextLinkClick(e) {
