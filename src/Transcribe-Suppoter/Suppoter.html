@@ -9,7 +9,7 @@
     <link href="../css/bootstrap.min.css" rel="stylesheet" />
     <style>
         body {
-            font-family: "BIZ UDGothic", "BIZUDGothic", sans-serif;
+            font-family: "BIZ UDGothic", "BIZ UDPGothic", sans-serif;
         }
         .text-link {
             cursor: pointer;
@@ -19,7 +19,7 @@
             text-decoration: underline;
         }
         .csv-table-wrapper {
-            max-height: calc(100vh - 280px);
+            flex: 1;
             overflow-y: auto;
         }
         .csv-table-wrapper table {
@@ -35,8 +35,8 @@
     <title>文字起こしサポーター</title>
 </head>
 
-<body class="d-flex flex-column min-vh-100">
-    <header class="header border-bottom mb-3">
+<body class="d-flex flex-column vh-100">
+    <header class="border-bottom">
         <div class="container">
             <div class="row align-items-center py-2">
                 <div class="col">
@@ -46,7 +46,7 @@
                     <a class="btn btn-outline-secondary btn-sm" href="../index.html">戻る</a>
                 </div>
             </div>
-            <div class="row">
+            <div class="row pb-2">
                 <div class="col-12">
                     <p class="text-muted small mb-0">CSVと音声ファイルを読み込んで、聞きたい箇所のテキストをクリックすると、その時間から音声が再生されます。</p>
                 </div>
@@ -54,37 +54,37 @@
         </div>
     </header>
 
-    <main class="main flex-grow-1">
-        <div class="container">
+    <main class="flex-grow-1 d-flex flex-column overflow-hidden">
+        <div class="container d-flex flex-column flex-grow-1 py-3">
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
                     <div class="card">
-                        <div class="card-body">
-                            <h6 class="card-title text-muted">CSVファイル</h6>
+                        <div class="card-body py-2">
+                            <h6 class="card-title text-muted mb-1">CSVファイル</h6>
                             <input class="form-control form-control-sm" type="file" id="csvFileInput" accept=".csv" />
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="card">
-                        <div class="card-body">
-                            <h6 class="card-title text-muted">音声ファイル</h6>
+                        <div class="card-body py-2">
+                            <h6 class="card-title text-muted mb-1">音声ファイル</h6>
                             <input class="form-control form-control-sm" type="file" id="audioFileInput" accept=".mp3,.wav,.m4a,.flac,.ogg,.wma" />
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-body p-0">
+            <div class="card flex-grow-1 d-flex flex-column overflow-hidden">
+                <div class="card-body flex-grow-1 d-flex flex-column p-0 overflow-hidden">
                     <div class="csv-table-wrapper">
                         <table class="table table-bordered table-sm table-hover mb-0">
                             <thead>
                                 <tr>
-                                    <th>Point</th>
-                                    <th>Start</th>
-                                    <th>End</th>
-                                    <th>Text</th>
+                                    <th style="width: 60px;">No.</th>
+                                    <th style="width: 80px;">開始</th>
+                                    <th style="width: 80px;">終了</th>
+                                    <th>テキスト</th>
                                 </tr>
                             </thead>
                             <tbody id="csvTableBody"></tbody>
@@ -95,8 +95,8 @@
         </div>
     </main>
 
-    <footer class="footer border-top mt-3">
-        <div class="container py-3">
+    <footer class="border-top">
+        <div class="container py-2">
             <div class="card">
                 <div class="card-body py-2">
                     <audio id="audio" class="w-100" controls></audio>
