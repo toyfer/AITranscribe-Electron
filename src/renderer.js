@@ -44,6 +44,9 @@ class UIController {
     this.progressBar = new ProgressBar();
     this.jobBusy = false;
 
+    /** Full path kept internally; display shows filename only */
+    this.fullFilePath = "";
+
     if (!window.electronAPI) {
       const msg =
         "[System] preload が読み込めていません（window.electronAPI が未定義）。" +
@@ -75,6 +78,14 @@ class UIController {
   #getSelectedModelId() {
     const checked = document.querySelector('input[name="model"]:checked');
     return checked ? checked.value : MODEL_CATALOG.find((m) => m.default)?.id || "";
+  }
+
+  /** Extract filename from a full path (Windows backslash + POSIX forward slash). */
+  #basename(fullPath) {
+    if (!fullPath) return "";
+    const normalized = fullPath.replace(/\\/g, "/");
+    const parts = normalized.split("/");
+    return parts[parts.length - 1] || "";
   }
 
   #bindEvents() {
@@ -120,7 +131,8 @@ class UIController {
     try {
       const filePath = await window.electronAPI.openFile();
       if (filePath) {
-        this.filePathElement.value = filePath;
+        this.fullFilePath = filePath;
+        this.filePathElement.value = this.#basename(filePath);
         // file:// プロトコルでローカルパスを読む（Windows パスはそのままで可）
         this.audioFile.src = filePath.startsWith("file:")
           ? filePath
@@ -158,7 +170,7 @@ class UIController {
   }
 
   #onStart() {
-    if (!this.filePathElement.value) {
+    if (!this.fullFilePath) {
       alert("音声ファイルを選択してください");
       return;
     }
@@ -175,7 +187,7 @@ class UIController {
     this.setUiBusy(true);
     // fallback timer only until first measured event arrives
     this.progressBar.startProgress(selectModel.estimatedDuration);
-    window.electronAPI.runFFmpeg([this.filePathElement.value, selectModel]);
+    window.electronAPI.runFFmpeg([this.fullFilePath, selectModel]);
   }
 }
 
