@@ -3,6 +3,8 @@
 この文書は、本ソフトウェアの配布・利用時に関係し得るサードパーティ成果物の案内です。
 **アプリ本体（本リポジトリの MIT コード）と、実行時に利用側が配置するランタイムは別物**です。
 
+> **重要**: GitHub Release の zip には **Whisper モデル・llama-cli・GGUF を含みません**（2GB 制限超過のため）。これらはユーザーが手動で取得・配置します。詳細は [`docs/models.md`](./docs/models.md) を参照。
+
 ---
 
 ## 1. 本リポジトリに含まれるもの（MIT）
@@ -12,6 +14,7 @@
 | AITranscribe-Electron アプリソース | [MIT](./LICENSE) | `src/**`, 設定ファイル等 |
 | Electron（ビルド成果物に同梱されるランタイム） | [Electron LICENSE](https://github.com/electron/electron/blob/main/LICENSE) 等 | Chromium / Node を含む複合。公式のライセンス表記に従う |
 | npm 開発依存（electron-builder 等） | 各パッケージの LICENSE | ビルド時のみ。配布 zip の実行に必須ではない |
+| `docx` (npm、要約機能を使う場合) | MIT — https://github.com/dolanmiu/docx | 実行時に必要 |
 
 アプリの著作権表示: Copyright (c) 2023-2026 toyfer（MIT）。
 
@@ -19,8 +22,8 @@
 
 ## 2. Git に含めず・利用側が配置するもの（重要）
 
-エアギャップ方針のため、以下は **リポジトリにも公式配布 zip の必須同梱にも含めません**。
-オンライン機で入手し、ライセンスを確認したうえで `src/Whisper/`（または成果物内の同等パス）へ配置してください。
+エアギャップ方針 + 2GB zip 制限のため、以下は **リポジトリにも公式配布 zip にも含めません**。
+オンライン機で入手し、ライセンスを確認したうえで `src/Whisper/` へ配置してください。
 
 ### 2.1 FFmpeg（`ffmpeg.exe`）
 
@@ -57,11 +60,35 @@ CI の fullbuild が FFmpeg をダウンロードするのは **オンライン�
 
 | UI / ディレクトリ | 取得元例 | ライセンス目安 |
 |-------------------|----------|----------------|
-| 速度重視 `models/small` | Systran/faster-whisper-small | モデルカード記載（**必ず各ページを確認**） |
-| 精度重視・既定 `models/turbo` | deepdml/faster-whisper-large-v3-turbo-ct2 | 同上 |
+| 速度重視 `models/small` | https://huggingface.co/Systran/faster-whisper-small | MIT |
+| 精度重視・既定 `models/turbo` | https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2 | MIT (CT2 変換済み) |
 
 元となった OpenAI Whisper 系モデルの利用条件も、上流のモデルカードと OpenAI の利用規約を確認してください。
-詳細: [docs/models.md](./docs/models.md)
+
+詳細・取得方法・SHA-256 検証: [docs/models.md](./docs/models.md)
+
+### 2.5 llama.cpp（`llama-cli.exe`）— 要約機能を使う場合のみ
+
+| 項目 | 内容 |
+|------|------|
+| 役割 | GGUF モデルのランタイム（CPU 推論） |
+| 同梱 | **しない**（zip 2GB 制限のため） |
+| 取得元 | https://github.com/ggml-org/llama.cpp/releases |
+| 推奨ファイル | `llama-b{VERSION}-bin-win-cpu-x64.zip` |
+| ライセンス | **MIT License** — https://github.com/ggml-org/llama.cpp/blob/master/LICENSE |
+| 検証 | GitHub Releases の sha256sum.txt で SHA-256 を確認 |
+
+### 2.6 GGUF モデル（要約機能を使う場合のみ）
+
+| モデル | 取得元 | ライセンス |
+|--------|--------|------|
+| Qwen3-0.6B-GGUF (q4_k_m 量子化) | https://huggingface.co/Qwen/Qwen3-0.6B-GGUF | Apache 2.0 |
+| 代替: Qwen3-1.7B-GGUF | https://huggingface.co/Qwen/Qwen3-1.7B-GGUF | Apache 2.0 |
+| 代替: Qwen3-4B-GGUF | https://huggingface.co/Qwen/Qwen3-4B-GGUF | Apache 2.0 |
+
+Qwen3 のベースモデル（[QwenLM/Qwen3](https://huggingface.co/QwenLM/Qwen3)）も Apache 2.0。
+
+詳細・配置方法: [docs/models.md](./docs/models.md) の「**3. GGUF モデル**」
 
 ---
 
@@ -79,11 +106,13 @@ CI の fullbuild が FFmpeg をダウンロードするのは **オンライン�
 |----------|------|
 | `LICENSE` | アプリ本体 MIT |
 | `THIRD_PARTY_NOTICES.md` | 本ファイル |
-| `docs/models.md` / `docs/distribution.md` | 運用 |
+| `docs/models.md` | モデル・llama-cli・GGUF の取得・配置手順 |
+| `docs/distribution.md` | 配布・組み立て全体像 |
+| `docs/summarize.md` | 要約機能のアーキテクチャ |
 | `requirements-whisper.txt` | オフライン pip 再現 |
 
 **Whisper 一式（ffmpeg / python / models）は別媒体・別チェックサムで渡す**運用を推奨します。
-fullbuild 成果物にはオンライン組み立て用に FFmpeg・Python・モデルが含まれる場合がありますが、**再配布時は各ライセンスを別途確認**してください。
+fullbuild 成果物にはオンライン組み立て用に FFmpeg・Python が含まれる場合がありますが、**モデル・llama-cli・GGUF は含めません**。
 
 ---
 
