@@ -47,3 +47,20 @@ git clone --depth 1 https://huggingface.co/deepdml/faster-whisper-large-v3-turbo
 - 上書き: `AITRANSCRIBE_DEVICE` / `AITRANSCRIBE_COMPUTE`
 - `language=ja` 固定
 - `vad_filter=True`
+
+## 追加モデル（要約機能を使う場合）
+
+`src/Whisper/models/llm/` に GGUF 形式の LLM を配置:
+
+```
+src/Whisper/
+  llama-cli.exe (Windows) / llama-cli (Unix)
+  models/llm/
+    qwen3-0.6b-q4_k_m.gguf   # 推奨（日本語対応・CPU 20-40 tok/s）
+```
+
+- llama-cli: https://github.com/ggerganov/llama.cpp/releases からビルド済みバイナリ
+- GGUF: 例 https://huggingface.co/Qwen/Qwen3-0.6B-GGUF の `qwen3-0.6b-q4_k_m.gguf`
+
+**エアギャップ注意**: zip の 2GB 制限を超えるため、fullbuild では GGUF を含めず手動配置のみ。
+partialbuild でも同様。
