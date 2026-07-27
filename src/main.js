@@ -14,6 +14,10 @@ const runtime = new RuntimeLayout(__dirname);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    minWidth: 480,
+    minHeight: 400,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -40,6 +44,13 @@ function sendCommandOutput(message) {
 function sendProgress(payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(CHANNELS.PROCESS_PROGRESS, payload);
+    // Taskbar progress bar (0.0–1.0, -1 to clear)
+    if (payload.pct != null && typeof payload.pct === "number") {
+      mainWindow.setProgressBar(Math.max(0, Math.min(1, payload.pct / 100)));
+    }
+    if (payload.type === "complete") {
+      mainWindow.setProgressBar(-1);
+    }
   }
 }
 
