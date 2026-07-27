@@ -15,35 +15,26 @@
         .font-monospace {
             font-family: "BIZ UDGothic", "BIZ UDPGothic", "Cascadia Mono", "Consolas", monospace;
         }
-
-        /* ログカード内: card-body を縦flexにして textarea だけ伸びる */
-        .log-card {
-            display: flex;
-            flex-direction: column;
-        }
-        .log-card .card-body {
-            display: flex;
-            flex-direction: column;
-            flex: 1 1 auto;
-        }
-        .log-card textarea {
-            flex: 1 1 auto;
-            min-height: 0;
-            resize: none;
-        }
     </style>
     <title>AI文字起こし</title>
 </head>
 
 <!--
-  App shell: Bootstrap 5.3 標準の sticky footer + app パターン
-  - body を縦flexにして header / main / footer を積む
-  - main の中身を d-flex flex-column で縦に並べ、最後のカードを mt-auto + flex-grow-1 で
-    残り領域を埋めて底に押し下げる
+  App shell: 単一の flex チェーン
+  body(d-flex.flex-column.min-vh-100)
+    └─ header (固定)
+    └─ main(flex-grow-1.overflow-hidden.d-flex.flex-column)
+         └─ .container(flex-grow-1.d-flex.flex-column)
+              ├─ .card モデル選択 (固定)
+              ├─ .card 進捗 (固定)
+              └─ .card ログ (flex:1 1 0, min-height:0)
+                   └─ .card-body(flex:1 1 0, min-height:0, d-flex.flex-column)
+                        ├─ ヘッダ行 (固定)
+                        └─ textarea(flex:1 1 0, min-height:0)
+    └─ footer (固定)
 -->
 <body class="d-flex flex-column min-vh-100">
 
-    <!-- ヘッダー: タイトル + サポーター起動ボタン -->
     <header class="border-bottom">
         <div class="container py-2">
             <div class="row align-items-center g-2">
@@ -57,10 +48,9 @@
         </div>
     </header>
 
-    <!-- メイン: カード3枚を縦flexで並べる。ログカードが mt-auto + flex-grow-1 -->
     <main class="flex-grow-1 overflow-hidden d-flex flex-column">
         <div class="container py-3 flex-grow-1 d-flex flex-column">
-            <!-- モデル選択カード -->
+
             <div class="card mb-3">
                 <div class="card-body">
                     <h6 class="card-title text-muted mb-2">モデルの選択</h6>
@@ -74,7 +64,6 @@
                 </div>
             </div>
 
-            <!-- 進捗カード -->
             <div class="card mb-3">
                 <div class="card-body">
                     <div class="d-flex align-items-center gap-2 mb-2">
@@ -88,21 +77,22 @@
                 </div>
             </div>
 
-            <!-- ログカード: flex-grow-1 + mt-auto で残り領域を埋める -->
-            <div class="card log-card flex-grow-1 mt-auto">
-                <div class="card-body">
+            <!-- ログカード: 単一flexチェーンの最終段で flex:1 1 0 -->
+            <div class="card flex-grow-1 d-flex flex-column" style="min-height: 0;">
+                <div class="card-body flex-grow-1 d-flex flex-column" style="min-height: 0;">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="card-title text-muted mb-0">ログ</h6>
                         <button type="button" class="btn btn-outline-secondary btn-sm" id="log-clear-button">クリア</button>
                     </div>
-                    <textarea readonly class="form-control font-monospace" id="output-textarea"></textarea>
+                    <textarea readonly class="form-control font-monospace flex-grow-1" id="output-textarea"
+                        style="min-height: 0; resize: none;"></textarea>
                 </div>
             </div>
+
         </div>
     </main>
 
-    <!-- フッター: ファイルパス + ファイル選択 + スタート -->
-    <footer class="border-top mt-auto">
+    <footer class="border-top">
         <div class="container py-3">
             <div class="row g-2 align-items-center">
                 <div class="col-md-7">
