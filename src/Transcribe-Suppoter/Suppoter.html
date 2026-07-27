@@ -11,13 +11,10 @@
         html, body {
             height: 100%;
             margin: 0;
-            overflow: hidden;
         }
         body {
             font-family: "BIZ UDGothic", "BIZ UDPGothic", sans-serif;
-            /* body 自体を Grid にして 3 行で app shell を構成 */
-            display: grid;
-            grid-template-rows: auto 1fr auto;
+            overflow: hidden;
         }
         .text-link {
             cursor: pointer;
@@ -27,41 +24,56 @@
             text-decoration: underline;
         }
 
-        /* header / footer は内容に合わせて固定高さ */
-        header, footer {
+        /* Bootstrap container/row/card の幅・余白を維持する app shell */
+        .supporter-shell {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
             overflow: hidden;
         }
-
-        /* main も Grid にして、内側の要素の高さを直接制御 */
-        main {
-            display: grid;
-            grid-template-rows: auto 1fr; /* ファイル入力 / テーブル */
-            gap: 1rem;
-            overflow: hidden;
-            padding: 1rem;
-            /* Bootstrap .container の max-width を維持しつつ Grid で高さ制御 */
-            max-width: var(--bs-breakpoint-lg, 960px);
-            margin: 0 auto;
-            width: 100%;
+        .supporter-header,
+        .supporter-footer {
+            flex: 0 0 auto;
         }
-
-        /* テーブルカードの中身も Grid で制御 */
-        .table-card {
-            display: grid;
-            grid-template-rows: 1fr; /* テーブルラッパのみ */
+        .supporter-main {
+            flex: 1 1 auto;
+            min-height: 0;
             overflow: hidden;
+        }
+        .supporter-main > .container,
+        .supporter-main > .container > .row,
+        .supporter-content {
+            height: 100%;
             min-height: 0;
         }
-        .table-card .card-body {
-            display: grid;
-            grid-template-rows: 1fr; /* テーブルラッパのみ */
-            overflow: hidden;
+        .supporter-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* テーブルカードだけを残り領域に伸縮。ページ全体は伸ばさない */
+        #table-card-container {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: flex;
+        }
+        #table-card {
+            flex: 1 1 auto;
+            min-height: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        #table-card .card-body {
+            flex: 1 1 auto;
             min-height: 0;
             padding: 0;
+            overflow: hidden;
         }
         .csv-table-wrapper {
+            height: 100%;
             overflow-y: auto;
-            min-height: 0;
         }
         .csv-table-wrapper table {
             margin-bottom: 0;
@@ -77,72 +89,82 @@
 </head>
 
 <body>
-    <header class="border-bottom">
-        <div class="container">
-            <div class="row align-items-center py-2">
-                <div class="col">
-                    <h2 id="title-label" class="mb-0">文字起こしサポーター</h2>
+    <div class="supporter-shell">
+        <header class="supporter-header border-bottom mb-3">
+            <div class="container">
+                <div class="row align-items-center py-2">
+                    <div class="col">
+                        <h2 id="title-label" class="mb-0">文字起こしサポーター</h2>
+                    </div>
+                    <div class="col-auto">
+                        <a class="btn btn-outline-secondary btn-sm" href="../index.html">戻る</a>
+                    </div>
                 </div>
-                <div class="col-auto">
-                    <a class="btn btn-outline-secondary btn-sm" href="../index.html">戻る</a>
-                </div>
-            </div>
-            <div class="row pb-2">
-                <div class="col-12">
-                    <p class="text-muted small mb-0">CSVと音声ファイルを読み込んで、聞きたい箇所のテキストをクリックすると、その時間から音声が再生されます。</p>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <main>
-        <div class="row g-3">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body py-2">
-                        <h6 class="card-title text-muted mb-1">CSVファイル</h6>
-                        <input class="form-control form-control-sm" type="file" id="csvFileInput" accept=".csv" />
+                <div class="row pb-2">
+                    <div class="col-12">
+                        <p class="text-muted small mb-0">CSVと音声ファイルを読み込んで、聞きたい箇所のテキストをクリックすると、その時間から音声が再生されます。</p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body py-2">
-                        <h6 class="card-title text-muted mb-1">音声ファイル</h6>
-                        <input class="form-control form-control-sm" type="file" id="audioFileInput" accept=".mp3,.wav,.m4a,.flac,.ogg,.wma" />
+        </header>
+
+        <main class="supporter-main" id="supporter-main">
+            <div class="container">
+                <div class="row">
+                    <div class="col-12 supporter-content">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body py-2">
+                                        <h6 class="card-title text-muted mb-1">CSVファイル</h6>
+                                        <input class="form-control form-control-sm" type="file" id="csvFileInput" accept=".csv" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body py-2">
+                                        <h6 class="card-title text-muted mb-1">音声ファイル</h6>
+                                        <input class="form-control form-control-sm" type="file" id="audioFileInput" accept=".mp3,.wav,.m4a,.flac,.ogg,.wma" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="table-card-container">
+                            <div class="card" id="table-card">
+                                <div class="card-body">
+                                    <div class="csv-table-wrapper">
+                                        <table class="table table-bordered table-sm table-hover mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 60px;">No.</th>
+                                                    <th style="width: 80px;">開始</th>
+                                                    <th style="width: 80px;">終了</th>
+                                                    <th>テキスト</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="csvTableBody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </main>
 
-        <div class="card table-card">
-            <div class="card-body">
-                <div class="csv-table-wrapper">
-                    <table class="table table-bordered table-sm table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th style="width: 60px;">No.</th>
-                                <th style="width: 80px;">開始</th>
-                                <th style="width: 80px;">終了</th>
-                                <th>テキスト</th>
-                            </tr>
-                        </thead>
-                        <tbody id="csvTableBody"></tbody>
-                    </table>
+        <footer class="supporter-footer border-top mt-3">
+            <div class="container py-2">
+                <div class="card">
+                    <div class="card-body py-2">
+                        <audio id="audio" class="w-100" controls></audio>
+                    </div>
                 </div>
             </div>
-        </div>
-    </main>
-
-    <footer class="border-top">
-        <div class="container py-2">
-            <div class="card">
-                <div class="card-body py-2">
-                    <audio id="audio" class="w-100" controls></audio>
-                </div>
-            </div>
-        </div>
-    </footer>
+        </footer>
+    </div>
 
     <script src="../js/bootstrap.bundle.min.js"></script>
     <script src="./Suppoter.js"></script>
