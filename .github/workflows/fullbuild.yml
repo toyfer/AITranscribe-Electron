@@ -1,7 +1,9 @@
 name: FullBuild AITranscribe-Electron for Windows
 
-# Online assembly: npm ci + FFmpeg + Python Embeddable + models + electron-builder.
-# On tag v*: also attach zip to the GitHub Release assets.
+# Online assembly: npm ci + FFmpeg + Python Embeddable + electron-builder.
+# Whisper モデル・llama-cli・GGUF は zip に含めない (容量削減 + ユーザー側で取得)。
+# 取得先は docs/models.md を参照。
+# タグ push 時のみ GitHub Release に zip を添付 (zip の 2GB 制限に注意)。
 #
 # バージョン管理: package.json は 0.1 固定。
 # 日付と git コミットハッシュでユニーク性を担保。
@@ -49,11 +51,6 @@ jobs:
       - name: Python Embeddable Download (pinned 3.11.4)
         run: Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
 
-      - name: Faster-Whisper models (small + turbo only)
-        run: |
-          git clone --depth 1 https://huggingface.co/Systran/faster-whisper-small .\src\Whisper\models\small\
-          git clone --depth 1 https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2 .\src\Whisper\models\turbo\
-
       - name: Setup FFmpeg + Embeddable + pinned pip deps
         run: |
           Expand-Archive .\FFmpeg.zip .\
@@ -66,6 +63,12 @@ jobs:
           Copy-Item .\requirements-whisper.txt .\src\Whisper\requirements-whisper.txt
           .\src\Whisper\Python.exe -m pip install -r .\src\Whisper\requirements-whisper.txt
 
+      # NOTE: Whisper models are NOT downloaded in this workflow.
+      # GitHub Release zip limit is 2GB. Including large models would
+      # exceed it. The app is fully functional without models — the
+      # runtime reports missing models at startup.
+      # See docs/models.md for manual placement instructions.
+
       - name: Build Electron project for Windows
         run: npm run build_win
         env:
@@ -75,7 +78,20 @@ jobs:
       - name: List build outputs
         run: Get-ChildItem -Recurse build | Select-Object FullName, Length
 
-      - name: Upload workflow artifact
+      - name: Verify zip size under 2GB (GitHub Release limit)
+        shell: pwsh
+        run: |
+          $zips = Get-ChildItem -Path build -Filter *.zip
+          foreach ($zip in $zips) {
+            $sizeGB = [math]::Round($zip.Length / 1GB, 2)
+            Write-Host "$($zip.Name) = $sizeGB GB"
+            if ($zip.Length -gt 2GB) {
+              Write-Error "$($zip.Name) exceeds 2GB ($sizeGB GB). Cannot attach to GitHub Release."
+              exit 1
+            }
+          }
+
+      - name: Upload workflow artifact (unbounded size)
         uses: actions/upload-artifact@v4
         with:
           name: AITranscribe-Electron
