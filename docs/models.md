@@ -1,6 +1,16 @@
 # モデル・ランタイム配置ガイド
 
-**重要**: AITranscribe-Electron の配布物（zip）にはモデル・llama-cli・GGUF は**含まれません**。これらは GitHub Release の 2GB zip 制限を超えるためで、ユーザー側で取得・配置します。
+**重要**: AITranscribe-Electron の **GitHub Release zip** には Whisper モデル・llama-cli・GGUF は**含まれません**。Release zip の 2GB 制限を超えるためです。
+
+ただし、**fullbuild workflow の artifact には全入り**で同梱されています（GitHub Actions artifact は容量無制限）。開発者・CI 検証用にはそちらを、ローカル開発や手元ですぐ動かしたい場合は docs/models.md の手順で手動配置してください。
+
+**エアギャップ配布時の推奨フロー**:
+1. GitHub Releases から **モデル抜き zip** をダウンロード
+2. zip を展開
+3. 別途モデル・llama-cli・GGUF を取得・配置（`docs/models.md` の手順）
+4. 起動
+
+または開発者・CI なら fullbuild artifact の **全入り版** を取得して使用。
 
 このドキュメントは、**取得先・取得方法・配置場所・サイズ・ライセンス・SHA-256 検証**を一覧化した唯一の参照先です。
 
@@ -185,16 +195,18 @@ src/Whisper/models/llm/qwen3-0.6b-q4_k_m.gguf
 src/Whisper/
   ffmpeg.exe                    (zip 同梱 / ライセンス要確認)
   python.exe + Lib/             (zip 同梱)
-  llama-cli.exe                  (手動配置・要約機能を使う場合)
+  llama-cli.exe                  (Release zip には含まれず・fullbuild artifact には含まれる)
   models/
-    small/                      (手動配置・速度重視)
-    turbo/                      (手動配置・精度重視・オプション)
+    small/                      (Release zip には含まれず・fullbuild artifact には含まれる)
+    turbo/                      (同上)
     llm/
-      qwen3-0.6b-q4_k_m.gguf   (手動配置・要約機能を使う場合)
+      qwen3-0.6b-q4_k_m.gguf   (同上)
 ```
 
-- **zip に同梱される**: `ffmpeg.exe` / `python.exe` + `Lib/` (Whisper ランタイム)
-- **手動配置が必要**: Whisper モデル (small, turbo) / `llama-cli.exe` / GGUF
+| 場所 | 含めるもの |
+|------|----------|
+| **Release zip** (2GB 制限) | アプリ本体 + FFmpeg + Python + site-packages + ドキュメント |
+| **fullbuild artifact** (容量無制限) | 上記 + Whisper モデル + llama-cli + GGUF |
 
 ---
 
