@@ -15,61 +15,48 @@
         }
         body {
             font-family: "BIZ UDGothic", "BIZ UDPGothic", sans-serif;
+            /* body 自体を Grid にして 3 行で app shell を構成 */
+            display: grid;
+            grid-template-rows: auto 1fr auto;
         }
         .font-monospace {
             font-family: "BIZ UDGothic", "BIZ UDPGothic", monospace;
         }
 
-        /* CSS Grid で app shell を構成: header(固定) / main(伸縮) / footer(固定) */
-        body {
-            display: grid;
-            grid-template-rows: auto 1fr auto;
-        }
-
-        /* header と footer は内容に合わせて固定高さ */
+        /* header / footer は内容に合わせて固定高さ */
         header, footer {
             overflow: hidden;
         }
 
-        /* main は残り領域を占有し、はみ出しを隠す */
+        /* main も Grid にして、内側のカードの高さを直接制御 */
         main {
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* main 内のコンテナも縦いっぱいに広げる */
-        main > .container {
-            flex: 1 1 0;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .content-wrapper {
-            flex: 1 1 0;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-rows: auto auto 1fr; /* モデル選択 / 進捗 / ログ */
             gap: 0.75rem;
+            overflow: hidden;
+            padding: 1rem;
+            /* Bootstrap .container の max-width を維持しつつ Grid で高さ制御 */
+            max-width: var(--bs-breakpoint-lg, 960px);
+            margin: 0 auto;
+            width: 100%;
         }
 
-        /* ログカードが残り領域を占有 */
+        /* ログカードの中身も Grid で制御 */
         .log-card {
-            flex: 1 1 0;
+            display: grid;
+            grid-template-rows: auto 1fr; /* タイトル行 / textarea */
+            overflow: hidden;
             min-height: 0;
-            display: flex;
-            flex-direction: column;
         }
         .log-card .card-body {
-            flex: 1 1 0;
+            display: grid;
+            grid-template-rows: auto 1fr; /* タイトル+クリア / textarea */
+            overflow: hidden;
             min-height: 0;
-            display: flex;
-            flex-direction: column;
         }
-        /* textarea は calc で正確に残り高さを計算 */
         .log-card textarea {
-            flex: 1 1 0;
+            width: 100%;
+            height: 100%;
             min-height: 0;
             resize: none;
         }
@@ -97,44 +84,40 @@
     </header>
 
     <main>
-        <div class="container py-3">
-            <div class="content-wrapper">
-                <div class="card">
-                    <div class="card-body py-2">
-                        <h6 class="card-title text-muted mb-2">モデルの選択</h6>
-                        <div class="btn-group w-100" role="group" aria-label="モデル選択">
-                            <input type="radio" class="btn-check" name="model" id="model-small" autocomplete="off" value="small">
-                            <label class="btn btn-outline-primary" for="model-small">速度重視</label>
+        <div class="card">
+            <div class="card-body py-2">
+                <h6 class="card-title text-muted mb-2">モデルの選択</h6>
+                <div class="btn-group w-100" role="group" aria-label="モデル選択">
+                    <input type="radio" class="btn-check" name="model" id="model-small" autocomplete="off" value="small">
+                    <label class="btn btn-outline-primary" for="model-small">速度重視</label>
 
-                            <input type="radio" class="btn-check" name="model" id="model-turbo" autocomplete="off" value="turbo" checked>
-                            <label class="btn btn-outline-primary" for="model-turbo">精度重視（推奨）</label>
-                        </div>
-                    </div>
+                    <input type="radio" class="btn-check" name="model" id="model-turbo" autocomplete="off" value="turbo" checked>
+                    <label class="btn btn-outline-primary" for="model-turbo">精度重視（推奨）</label>
                 </div>
+            </div>
+        </div>
 
-                <div class="card progress-card">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center gap-2">
-                            <h6 class="card-title text-muted mb-0 text-nowrap">進捗</h6>
-                            <p class="small text-muted mb-0 flex-grow-1" id="progress-phase" hidden></p>
-                        </div>
-                        <div hidden class="progress mt-1" role="progressbar" aria-label="progressbar-aria" aria-valuenow="0"
-                            aria-valuemin="0" aria-valuemax="100" id="progress" style="height: 20px;">
-                            <div class="progress-bar bg-success" id="progress-bar"></div>
-                        </div>
-                    </div>
+        <div class="card progress-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2">
+                    <h6 class="card-title text-muted mb-0 text-nowrap">進捗</h6>
+                    <p class="small text-muted mb-0 flex-grow-1" id="progress-phase" hidden></p>
                 </div>
+                <div hidden class="progress mt-1" role="progressbar" aria-label="progressbar-aria" aria-valuenow="0"
+                    aria-valuemin="0" aria-valuemax="100" id="progress" style="height: 20px;">
+                    <div class="progress-bar bg-success" id="progress-bar"></div>
+                </div>
+            </div>
+        </div>
 
-                <div class="card log-card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="card-title text-muted mb-0">ログ</h6>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" id="log-clear-button">クリア</button>
-                        </div>
-                        <textarea readonly class="form-control font-monospace"
-                            id="output-textarea"></textarea>
-                    </div>
+        <div class="card log-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="card-title text-muted mb-0">ログ</h6>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="log-clear-button">クリア</button>
                 </div>
+                <textarea readonly class="form-control font-monospace"
+                    id="output-textarea"></textarea>
             </div>
         </div>
     </main>
