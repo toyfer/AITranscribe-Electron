@@ -3,15 +3,15 @@ name: FullBuild AITranscribe-Electron for Windows
 # Online assembly: npm ci + FFmpeg + Python Embeddable + models + llama-cli + GGUF + electron-builder.
 #
 # 2 種類の成果物を作る:
-#   1. **Workflow artifact (全入り)**: 容量無制限。
+#   1. Workflow artifact (全入り): 容量無制限。
 #      Whisper モデル・llama-cli・GGUF を含む完全版。
 #      開発者 / CI 検証用。
-#   2. **Release zip (モデル抜き)**: 2GB 制限のため Whisper モデル・
+#   2. Release zip (モデル抜き): 2GB 制限のため Whisper モデル・
 #      llama-cli・GGUF を除いたアプリ本体のみ。
 #      ユーザーが docs/models.md を参照して手動で取得・配置する。
 #      タグ push 時に GitHub Release に添付。
 #
-# バージョン管理: package.json は 0.1 固定。
+# バージョン管理: package.json は 0.1.0 固定。
 # 日付と git コミットハッシュでユニーク性を担保。
 # zip ファイル名: AITranscribe-Electron-v0.1-YYYYMMDD-GITSHORT-x64.zip
 
@@ -24,20 +24,29 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: fullbuild-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Windows PowerShell で Unicode 文字 (✓ 等) を扱うため UTF-8 モードを有効化
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: "utf-8"
+  # Windows で symlink 警告を出さない
+  HF_HUB_DISABLE_SYMLINKS_WARNING: "1"
+  # CI で更新チェックを無効化
+  HF_HUB_DISABLE_UPDATE_CHECK: "1"
+
 jobs:
   build:
     runs-on: windows-latest
 
-    env:
-      # ビルド日 (UTC): zip ファイル名に埋め込む
-      BUILD_DATE: ${{ github.event.repository.updated_at && format(github.event.repository.updated_at, 'YYYYMMDD') || github.run_id }}
-      # git コミットハッシュ (短): 配布物のユニーク性
-      GIT_SHORT: ${{ github.sha }}
-
     steps:
-      - name: Set build date from workflow run
-        if: env.BUILD_DATE == ''
-        run: echo "BUILD_DATE=$(Get-Date -Format 'yyyyMMdd')" >> $env:GITHUB_ENV
+      - name: Set build date
+        shell: pwsh
+        run: |
+          $date = Get-Date -Format 'yyyyMMdd'
+          echo "BUILD_DATE=$date" >> $env:GITHUB_ENV
 
       - name: Check out code
         uses: actions/checkout@v4
@@ -51,56 +60,57 @@ jobs:
       - name: Install Node.js dependencies (locked)
         run: npm ci
 
-      - name: Install huggingface-cli (for model downloads)
-        # LFS を含むモデルを確実に取得するため。pip 経由は遅いので
-        # 事前ビルドバイナリをダウンロードして PATH に置く。
-        run: |
-          Invoke-WebRequest -Uri https://github.com/huggingface/huggingface_hub/releases/download/v0.24.7/huggingface-cli.exe -Outfile hf.exe
-          Move-Item -Force hf.exe C:\Windows\System32\hf.exe
-          hf --version
-        shell: pwsh
+      - name: Set up Python for huggingface-cli
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-      - name: FFmpeg Download (CI assembly only; not committed to git)
-        run: Invoke-WebRequest -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -Outfile FFmpeg.zip
+      - name: Install huggingface-cli via pip
+        shell: pwsh
+        run: |
+          pip install huggingface_hub
+          hf --version
+
+      - name: FFmpeg Download
+        shell: pwsh
+        run: Invoke-WebRequest -UseBasicParsing -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -Outfile FFmpeg.zip
 
       - name: Python Embeddable Download (pinned 3.11.4)
-        run: Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
+        shell: pwsh
+        run: Invoke-WebRequest -UseBasicParsing -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
 
       - name: Faster-Whisper models (small + turbo) via HF CLI
-        # LFS を含む HF モデルは `git clone --depth 1` だと実体が空になるため
-        # HF CLI を使う (確実に実バイナリ取得)。
-        run: |
-          hf download Systran/faster-whisper-small --local-dir src/Whisper/models/small
-          hf download deepdml/faster-whisper-large-v3-turbo-ct2 --local-dir src/Whisper/models/turbo
         shell: pwsh
+        run: |
+          hf download Systran/faster-whisper-small --local-dir src/Whisper/models/small --quiet
+          hf download deepdml/faster-whisper-large-v3-turbo-ct2 --local-dir src/Whisper/models/turbo --quiet
 
       - name: llama-cli (latest CPU Windows release)
-        # b10069 など固定だとリリースが上書きされたときに 404 になる。
-        # llama.cpp のリリース API で最新 Windows CPU を取得。
+        shell: pwsh
         run: |
-          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
-          # assets から win cpu x64 zip を探す
+          $release = Invoke-RestMethod -UseBasicParsing -Uri "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
           $asset = $release.assets | Where-Object { $_.name -like "*bin-win-cpu-x64.zip" } | Select-Object -First 1
-          if (-not $asset) { Write-Error "No win-cpu-x64 asset in latest llama.cpp release"; exit 1 }
+          if (-not $asset) {
+            Write-Error "No win-cpu-x64 asset in latest llama.cpp release"
+            exit 1
+          }
           Write-Host "Downloading $($asset.name) (tag=$($release.tag_name))"
-          Invoke-WebRequest -Uri $asset.browser_download_url -Outfile llama.zip
+          Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -Outfile llama.zip
           Expand-Archive -Path llama.zip -DestinationPath llama
           Copy-Item -Path "llama\llama-cli.exe" -Destination "src\Whisper\llama-cli.exe"
-        shell: pwsh
 
       - name: GGUF model (Qwen3-0.6B Q4_K_M via unsloth mirror)
-        # Qwen/Qwen3-0.6B-GGUF 公式は Q8_0 のみ (Q4_K_M なし)。
-        # unsloth のミラー (Q4_K_M 推奨サイズ) を使う。
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path src\Whisper\models\llm
-          hf download unsloth/Qwen3-0.6B-GGUF --include "Qwen3-0.6B-Q4_K_M.gguf" --local-dir src/Whisper/models/llm
-          # 配置ファイル名を統一 (runtime.js が参照する名前)
-          if (Test-Path src\Whisper\models\llm\Qwen3-0.6B-Q4_K_M.gguf) {
-            Move-Item -Force src\Whisper\models\llm\Qwen3-0.6B-Q4_K_M.gguf src\Whisper\models\llm\qwen3-0.6b-q4_k_m.gguf
+          hf download unsloth/Qwen3-0.6B-GGUF --include "Qwen3-0.6B-Q4_K_M.gguf" --local-dir src/Whisper/models/llm --quiet
+          $src = "src\Whisper\models\llm\Qwen3-0.6B-Q4_K_M.gguf"
+          if (Test-Path $src) {
+            Move-Item -Path $src -Destination "src\Whisper\models\llm\qwen3-0.6b-q4_k_m.gguf"
           }
-        shell: pwsh
 
       - name: Setup FFmpeg + Embeddable + pinned pip deps
+        shell: pwsh
         run: |
           Expand-Archive -Path FFmpeg.zip -DestinationPath FFmpeg-extracted
           Copy-Item -Path "FFmpeg-extracted\ffmpeg-master-latest-win64-lgpl\bin\ffmpeg.exe" -Destination "src\Whisper\ffmpeg.exe" -Force
@@ -109,28 +119,27 @@ jobs:
           if (Test-Path $pth) {
             (Get-Content $pth) -replace '#import site', 'import site' | Set-Content $pth
           }
-          Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -Outfile src\Whisper\get-pip.py
+          Invoke-WebRequest -UseBasicParsing -Uri https://bootstrap.pypa.io/get-pip.py -Outfile src\Whisper\get-pip.py
           src\Whisper\python.exe src\Whisper\get-pip.py
           src\Whisper\python.exe -m pip install -U "pip==25.0.1"
           Copy-Item requirements-whisper.txt src\Whisper\requirements-whisper.txt
           src\Whisper\python.exe -m pip install -r src\Whisper\requirements-whisper.txt
-        shell: pwsh
 
       - name: Build Electron project for Windows
         run: npm run build_win
         env:
           BUILD_DATE: ${{ env.BUILD_DATE }}
-          GIT_SHORT: ${{ env.GIT_SHORT }}
+          GIT_SHORT: ${{ github.sha }}
 
       - name: List build outputs
         shell: pwsh
         run: Get-ChildItem -Recurse build | Select-Object FullName, Length
 
       - name: Build release zip without large models
-        # Release zip は 2GB 制限のため、Whisper モデルと GGUF を除外して再 zip する。
-        # electron-builder の zip をそのまま使うと全入りなので、
-        # ワークフロー上で「モデル抜き zip」を別途組み立てる。
         shell: pwsh
+        env:
+          BUILD_DATE: ${{ env.BUILD_DATE }}
+          GIT_SHORT: ${{ github.sha }}
         run: |
           $src = "build\win-unpacked"
           if (-not (Test-Path $src)) {
@@ -140,26 +149,33 @@ jobs:
           $stage = "build\release-staging"
           if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
-          # Electron 出力ディレクトリ構造を丸ごとコピー (asar:false)
           Copy-Item -Path "$src\*" -Destination $stage -Recurse -Force
-          # モデル・llama-cli・GGUF を zip から除外
-          # 起動時にランタイム未配置エラーが出る想定で、ユーザは docs/models.md を参照して別途取得
+
+          # electron-builder は files 設定に従って src/ を resources/app/src/ に配置する
+          # そのため削除パスは resources\app\src\Whisper\... になる
           $toRemove = @(
-            "Whisper\models\small",
-            "Whisper\models\turbo",
-            "Whisper\llama-cli.exe",
-            "Whisper\models\llm"
+            "resources\app\src\Whisper\models\small",
+            "resources\app\src\Whisper\models\turbo",
+            "resources\app\src\Whisper\llama-cli.exe",
+            "resources\app\src\Whisper\models\llm"
           )
           foreach ($p in $toRemove) {
             $full = Join-Path $stage $p
             if (Test-Path $full) {
               Remove-Item -Recurse -Force $full
               Write-Host "Removed from release zip: $p"
+            } else {
+              Write-Host "NOT FOUND (skipped): $p"
             }
           }
-          # リリース zip を作成
+
+          # 削除後の staging ディレクトリのサイズを確認
+          $stageSize = (Get-ChildItem -Recurse $stage | Measure-Object -Property Length -Sum).Sum
+          $stageSizeGB = [math]::Round($stageSize / 1GB, 2)
+          Write-Host "Staging directory size after removal: $stageSizeGB GB"
+
           $date = $env:BUILD_DATE
-          $git = $env:GIT_SHORT
+          $git = $env:GIT_SHORT.Substring(0, 7)
           $releaseZipName = "AITranscribe-Electron-v0.1-${date}-${git}-x64.zip"
           $releaseZip = "build\$releaseZipName"
           if (Test-Path $releaseZip) { Remove-Item -Force $releaseZip }
@@ -173,10 +189,10 @@ jobs:
           }
 
       - name: Upload workflow artifact (full, unbounded size)
-        # 開発者 / CI 検証用。全入り。容量無制限。
         uses: actions/upload-artifact@v4
         with:
           name: AITranscribe-Electron-full
+          retention-days: 30
           path: |
             build/win-unpacked/
             package-lock.json
@@ -185,10 +201,10 @@ jobs:
             THIRD_PARTY_NOTICES.md
 
       - name: Upload release zip artifact
-        # GitHub Release に添付する zip。2GB 以下。
         uses: actions/upload-artifact@v4
         with:
           name: AITranscribe-Electron-release
+          retention-days: 30
           path: build/AITranscribe-Electron-v0.1-*-x64.zip
 
       - name: Attach release zip to GitHub Release (tags only)
