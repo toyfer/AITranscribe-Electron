@@ -15,44 +15,46 @@
         }
         body {
             font-family: "BIZ UDGothic", "BIZ UDPGothic", sans-serif;
-            display: flex;
-            flex-direction: column;
         }
         .font-monospace {
             font-family: "BIZ UDGothic", "BIZ UDPGothic", monospace;
         }
+
+        /* CSS Grid で app shell を構成: header(固定) / main(伸縮) / footer(固定) */
+        body {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+        }
+
+        /* header と footer は内容に合わせて固定高さ */
         header, footer {
-            flex-shrink: 0;
-        }
-        /* 進捗カードをコンパクトに固定 */
-        .progress-card .card-body {
-            padding: 0.5rem 1rem;
-        }
-        /* main を flex コンテナにして残り領域を埋める */
-        .main-area {
-            flex: 1 1 0;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
             overflow: hidden;
         }
-        /* .container に height: 100% を明示して flex の高さを確定させる */
-        .main-area > .container {
-            flex: 1 1 0;
-            min-height: 0;
-            height: 100%;
+
+        /* main は残り領域を占有し、はみ出しを隠す */
+        main {
+            overflow: hidden;
             display: flex;
             flex-direction: column;
         }
-        .main-area > .container > .content-wrapper {
+
+        /* main 内のコンテナも縦いっぱいに広げる */
+        main > .container {
             flex: 1 1 0;
             min-height: 0;
-            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .content-wrapper {
+            flex: 1 1 0;
+            min-height: 0;
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
         }
-        /* ログを残り領域いっぱいに広げる */
+
+        /* ログカードが残り領域を占有 */
         .log-card {
             flex: 1 1 0;
             min-height: 0;
@@ -65,12 +67,16 @@
             display: flex;
             flex-direction: column;
         }
-        /* textarea に height: 100% を明示して flex-grow を確実に機能させる */
+        /* textarea は calc で正確に残り高さを計算 */
         .log-card textarea {
             flex: 1 1 0;
             min-height: 0;
-            height: 100%;
             resize: none;
+        }
+
+        /* 進捗カードをコンパクトに */
+        .progress-card .card-body {
+            padding: 0.5rem 1rem;
         }
     </style>
     <title>AI文字起こし</title>
@@ -90,7 +96,7 @@
         </div>
     </header>
 
-    <main class="main-area">
+    <main>
         <div class="container py-3">
             <div class="content-wrapper">
                 <div class="card">
