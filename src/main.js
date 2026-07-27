@@ -14,10 +14,13 @@ const runtime = new RuntimeLayout(__dirname);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
+    // 固定サイズ: リサイズによる UI 崩れを防ぐ
+    // ログ・進捗が伸びてもウィンドウ内に収まるサイズに設計
     width: 800,
-    height: 600,
-    minWidth: 480,
-    minHeight: 400,
+    height: 720,
+    minWidth: 600,
+    minHeight: 540,
+    resizable: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
