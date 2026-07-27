@@ -34,7 +34,8 @@
     "win": {
       "icon": "",
       "target": "zip",
-      "asar": false
+      "asar": false,
+      "artifactName": "AITranscribe-Electron-v0.1-${env.BUILD_DATE}-${env.GIT_SHORT}-${arch}.${ext}"
     },
     "electronFuses": {
       "runAsNode": false,
