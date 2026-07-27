@@ -5,30 +5,36 @@ name: PartialBuild AITranscribe-Electron for Windows
 # GitHub Release zip is produced by fullbuild (workflow_dispatch or push tag).
 #
 # NOTE: Whisper モデル・llama-cli・GGUF は含めない (docs/models.md 参照)。
-# バージョン管理: package.json は 0.1 固定。日付+git short で識別。
 
 on:
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: partialbuild-main
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: "utf-8"
 
 jobs:
   build:
     runs-on: windows-latest
 
-    env:
-      # ビルド日 (UTC): zip ファイル名に埋め込む
-      BUILD_DATE: ${{ github.run_id }}
-      # git コミットハッシュ (短): 配布物のユニーク性
-      GIT_SHORT: ${{ github.sha }}
-
     steps:
-      - name: Set build date from workflow run
-        if: env.BUILD_DATE == ''
-        run: echo "BUILD_DATE=$(Get-Date -Format 'yyyyMMdd')" >> $env:GITHUB_ENV
+      - name: Set build date
+        shell: pwsh
+        run: |
+          $date = Get-Date -Format 'yyyyMMdd'
+          echo "BUILD_DATE=$date" >> $env:GITHUB_ENV
 
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js (Phase 3 — 24 LTS)
+      - name: Set up Node.js (24 LTS)
         uses: actions/setup-node@v4
         with:
           node-version: "24.18.0"
@@ -37,36 +43,41 @@ jobs:
       - name: Install Node.js dependencies (locked)
         run: npm ci
 
-      - name: FFmpeg Download (CI assembly only)
-        run: Invoke-WebRequest -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -Outfile FFmpeg.zip
+      - name: FFmpeg Download
+        shell: pwsh
+        run: Invoke-WebRequest -UseBasicParsing -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -Outfile FFmpeg.zip
 
       - name: Python Embeddable Download (pinned 3.11.4)
-        run: Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
+        shell: pwsh
+        run: Invoke-WebRequest -UseBasicParsing -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
 
       - name: Setup FFmpeg + Embeddable + pinned pip deps
+        shell: pwsh
         run: |
-          Expand-Archive .\FFmpeg.zip .\
-          Copy-Item -path .\ffmpeg-master-latest-win64-lgpl\bin\ffmpeg.exe .\src\Whisper\
-          Expand-Archive .\Python.zip -DestinationPath .\src\Whisper
-          (Get-Content .\src\Whisper\Python311._pth) -replace '#import site', 'import site' | Set-Content .\src\Whisper\Python311._pth
-          Invoke-WebRequest -Uri https://bootstrap.pypa.io/get-pip.py -Outfile .\src\Whisper\get-pip.py
-          .\src\Whisper\Python.exe .\src\Whisper\get-pip.py
-          .\src\Whisper\Python.exe -m pip install -U "pip==25.0.1"
-          Copy-Item .\requirements-whisper.txt .\src\Whisper\requirements-whisper.txt
-          .\src\Whisper\Python.exe -m pip install -r .\src\Whisper\requirements-whisper.txt
-
-      # NOTE: モデル・llama-cli・GGUF は取得しない (zip 2GB 制限のため含めない)。
+          Expand-Archive -Path FFmpeg.zip -DestinationPath FFmpeg-extracted
+          Copy-Item -Path "FFmpeg-extracted\ffmpeg-master-latest-win64-lgpl\bin\ffmpeg.exe" -Destination "src\Whisper\ffmpeg.exe" -Force
+          Expand-Archive -Path Python.zip -DestinationPath src/Whisper
+          $pth = "src\Whisper\Python311._pth"
+          if (Test-Path $pth) {
+            (Get-Content $pth) -replace '#import site', 'import site' | Set-Content $pth
+          }
+          Invoke-WebRequest -UseBasicParsing -Uri https://bootstrap.pypa.io/get-pip.py -Outfile src\Whisper\get-pip.py
+          src\Whisper\python.exe src\Whisper\get-pip.py
+          src\Whisper\python.exe -m pip install -U "pip==25.0.1"
+          Copy-Item requirements-whisper.txt src\Whisper\requirements-whisper.txt
+          src\Whisper\python.exe -m pip install -r src\Whisper\requirements-whisper.txt
 
       - name: Build Electron project for Windows
         run: npm run build_win
         env:
           BUILD_DATE: ${{ env.BUILD_DATE }}
-          GIT_SHORT: ${{ env.GIT_SHORT }}
+          GIT_SHORT: ${{ github.sha }}
 
       - name: Archive workflow artifact (no zip, no release)
         uses: actions/upload-artifact@v4
         with:
           name: AITranscribe-Electron_Partial
+          retention-days: 30
           path: |
             build/win-unpacked/
             package-lock.json
