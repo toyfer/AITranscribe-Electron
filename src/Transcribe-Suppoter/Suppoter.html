@@ -18,42 +18,24 @@
         .text-link:hover {
             text-decoration: underline;
         }
-
-        /* テーブルカード内: card-body を縦flexにしてテーブルだけ伸びる */
-        .table-card {
-            display: flex;
-            flex-direction: column;
-        }
-        .table-card .card-body {
-            display: flex;
-            flex-direction: column;
-            flex: 1 1 auto;
-            padding: 0;
-        }
-        .table-card .csv-table-wrapper {
-            flex: 1 1 auto;
-            min-height: 0;
-            overflow-y: auto;
-        }
-        .table-card table {
-            margin-bottom: 0;
-        }
-        .table-card thead th {
-            position: sticky;
-            top: 0;
-            background: var(--bs-body-bg);
-            z-index: 1;
-        }
     </style>
     <title>文字起こしサポーター</title>
 </head>
 
 <!--
-  App shell: Bootstrap 5.3 標準の sticky footer + app パターン
+  App shell: 単一の flex チェーン
+  body(d-flex.flex-column.min-vh-100)
+    └─ header (固定)
+    └─ main(flex-grow-1.overflow-hidden.d-flex.flex-column)
+         └─ .container(flex-grow-1.d-flex.flex-column)
+              ├─ .row ファイル選択 (固定)
+              └─ .card 発言テーブル (flex:1 1 0, min-height:0)
+                   └─ .card-body(flex:1 1 0, min-height:0, d-flex.flex-column, p-0)
+                        └─ .csv-table-wrapper(flex:1 1 0, min-height:0, overflow-y:auto)
+    └─ footer 再生プレイヤー (固定, 常に最下層)
 -->
 <body class="d-flex flex-column min-vh-100">
 
-    <!-- ヘッダー: タイトル + 戻る + 説明 -->
     <header class="border-bottom">
         <div class="container py-2">
             <div class="row align-items-center g-2">
@@ -72,10 +54,9 @@
         </div>
     </header>
 
-    <!-- メイン: ファイル選択 + 発言テーブル -->
     <main class="flex-grow-1 overflow-hidden d-flex flex-column">
         <div class="container py-3 flex-grow-1 d-flex flex-column">
-            <!-- ファイル選択 (2列) -->
+
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
                     <div class="card">
@@ -95,10 +76,10 @@
                 </div>
             </div>
 
-            <!-- 発言テーブル: flex-grow-1 + mt-auto で残り領域を埋める -->
-            <div class="card table-card flex-grow-1 mt-auto">
-                <div class="card-body">
-                    <div class="csv-table-wrapper">
+            <!-- 発言テーブル: 単一flexチェーンの最終段で flex:1 1 0 -->
+            <div class="card flex-grow-1 d-flex flex-column" style="min-height: 0;">
+                <div class="card-body flex-grow-1 d-flex flex-column p-0" style="min-height: 0;">
+                    <div class="csv-table-wrapper flex-grow-1" style="min-height: 0; overflow-y: auto;">
                         <table class="table table-bordered table-sm table-hover mb-0">
                             <thead>
                                 <tr>
@@ -113,11 +94,12 @@
                     </div>
                 </div>
             </div>
+
         </div>
     </main>
 
-    <!-- フッター: 再生プレイヤー -->
-    <footer class="border-top mt-auto">
+    <!-- 再生プレイヤー: 独立した最下層。テーブルの flex-grow と無関係に常に表示 -->
+    <footer class="border-top">
         <div class="container py-2">
             <div class="card">
                 <div class="card-body py-2">
