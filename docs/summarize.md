@@ -3,7 +3,7 @@
 文字起こし結果の **CSV** を読み込んで LLM で要約し、**Word (.docx)** として出力する機能です。
 エアギャップ環境で動作し、外部 API は使いません。
 
-> **重要**: 要約機能に必要な **llama-cli.exe と GGUF は zip 配布物に含まれません**。GitHub Release の 2GB zip 制限超過のため、ユーザーが手動で取得・配置します。取得元・配置方法は [`docs/models.md`](./models.md) の「**2. llama.cpp**」「**3. GGUF モデル**」を参照。
+> **重要**: 要約機能に必要な **llama-cli.exe と GGUF は GitHub Release zip に含まれません**（2GB 制限のため）。**GitHub Actions の fullbuild artifact には全入りで含まれます**（容量無制限）。詳細は [`docs/models.md`](./models.md) の「**2. llama.cpp**」「**3. GGUF モデル**」を参照。
 
 ---
 
@@ -83,7 +83,8 @@ hf download Qwen/Qwen3-0.6B-GGUF --include "qwen3-0.6b-q4_k_m.gguf" --local-dir 
 
 ## 制限事項（試験実装）
 
-- **llama-cli.exe と GGUF は手動配置必須** — エアギャップ + 2GB zip 制限のため
+- **llama-cli.exe と GGUF は Release zip には含まれず手動配置** — `docs/models.md` 参照
+  - fullbuild artifact (容量無制限) には含まれる
 - **NPM `docx` パッケージが必要** — `npm install docx` を実行
 - **ctx サイズは 32768 固定** — 1時間音声の CSV（~12k tokens）に対応
 - **トークン数は 1024 固定** — 種別ごとに調整可能だが試験実装では未対応
