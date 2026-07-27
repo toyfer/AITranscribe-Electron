@@ -15,6 +15,9 @@
         }
         body {
             font-family: "BIZ UDGothic", "BIZ UDPGothic", sans-serif;
+            /* body 自体を Grid にして 3 行で app shell を構成 */
+            display: grid;
+            grid-template-rows: auto 1fr auto;
         }
         .text-link {
             cursor: pointer;
@@ -24,56 +27,41 @@
             text-decoration: underline;
         }
 
-        /* CSS Grid で app shell を構成: header(固定) / main(伸縮) / footer(固定) */
-        body {
-            display: grid;
-            grid-template-rows: auto 1fr auto;
-        }
-
+        /* header / footer は内容に合わせて固定高さ */
         header, footer {
             overflow: hidden;
         }
 
+        /* main も Grid にして、内側の要素の高さを直接制御 */
         main {
+            display: grid;
+            grid-template-rows: auto 1fr; /* ファイル入力 / テーブル */
+            gap: 1rem;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
+            padding: 1rem;
+            /* Bootstrap .container の max-width を維持しつつ Grid で高さ制御 */
+            max-width: var(--bs-breakpoint-lg, 960px);
+            margin: 0 auto;
+            width: 100%;
         }
 
-        main > .container {
-            flex: 1 1 0;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .content-wrapper {
-            flex: 1 1 0;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* テーブルカードが残り領域を占有 */
+        /* テーブルカードの中身も Grid で制御 */
         .table-card {
-            flex: 1 1 0;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-rows: 1fr; /* テーブルラッパのみ */
             overflow: hidden;
+            min-height: 0;
         }
         .table-card .card-body {
-            flex: 1 1 0;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-            padding: 0;
+            display: grid;
+            grid-template-rows: 1fr; /* テーブルラッパのみ */
             overflow: hidden;
+            min-height: 0;
+            padding: 0;
         }
         .csv-table-wrapper {
-            flex: 1 1 0;
-            min-height: 0;
             overflow-y: auto;
+            min-height: 0;
         }
         .csv-table-wrapper table {
             margin-bottom: 0;
@@ -108,43 +96,39 @@
     </header>
 
     <main>
-        <div class="container py-3">
-            <div class="content-wrapper">
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-body py-2">
-                                <h6 class="card-title text-muted mb-1">CSVファイル</h6>
-                                <input class="form-control form-control-sm" type="file" id="csvFileInput" accept=".csv" />
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-body py-2">
-                                <h6 class="card-title text-muted mb-1">音声ファイル</h6>
-                                <input class="form-control form-control-sm" type="file" id="audioFileInput" accept=".mp3,.wav,.m4a,.flac,.ogg,.wma" />
-                            </div>
-                        </div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body py-2">
+                        <h6 class="card-title text-muted mb-1">CSVファイル</h6>
+                        <input class="form-control form-control-sm" type="file" id="csvFileInput" accept=".csv" />
                     </div>
                 </div>
-
-                <div class="card table-card">
-                    <div class="card-body">
-                        <div class="csv-table-wrapper">
-                            <table class="table table-bordered table-sm table-hover mb-0">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 60px;">No.</th>
-                                        <th style="width: 80px;">開始</th>
-                                        <th style="width: 80px;">終了</th>
-                                        <th>テキスト</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="csvTableBody"></tbody>
-                            </table>
-                        </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body py-2">
+                        <h6 class="card-title text-muted mb-1">音声ファイル</h6>
+                        <input class="form-control form-control-sm" type="file" id="audioFileInput" accept=".mp3,.wav,.m4a,.flac,.ogg,.wma" />
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card table-card">
+            <div class="card-body">
+                <div class="csv-table-wrapper">
+                    <table class="table table-bordered table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">No.</th>
+                                <th style="width: 80px;">開始</th>
+                                <th style="width: 80px;">終了</th>
+                                <th>テキスト</th>
+                            </tr>
+                        </thead>
+                        <tbody id="csvTableBody"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
