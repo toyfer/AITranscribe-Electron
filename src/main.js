@@ -32,6 +32,8 @@ function createWindow() {
 function sendProcessMessage(message) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(CHANNELS.PROCESS_MESSAGE, message);
+    // Clear taskbar progress on any job completion (success or failure)
+    mainWindow.setProgressBar(-1);
   }
 }
 
@@ -47,9 +49,6 @@ function sendProgress(payload) {
     // Taskbar progress bar (0.0–1.0, -1 to clear)
     if (payload.pct != null && typeof payload.pct === "number") {
       mainWindow.setProgressBar(Math.max(0, Math.min(1, payload.pct / 100)));
-    }
-    if (payload.type === "complete") {
-      mainWindow.setProgressBar(-1);
     }
   }
 }
