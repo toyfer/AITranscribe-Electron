@@ -3,6 +3,10 @@
 文字起こし結果の **CSV** を読み込んで LLM で要約し、**Word (.docx)** として出力する機能です。
 エアギャップ環境で動作し、外部 API は使いません。
 
+> **重要**: 要約機能に必要な **llama-cli.exe と GGUF は zip 配布物に含まれません**。GitHub Release の 2GB zip 制限超過のため、ユーザーが手動で取得・配置します。取得元・配置方法は [`docs/models.md`](./models.md) の「**2. llama.cpp**」「**3. GGUF モデル**」を参照。
+
+---
+
 ## 処理フロー
 
 ```
@@ -33,8 +37,26 @@ src/Whisper/
     qwen3-0.6b-q4_k_m.gguf  # 例: Qwen3-0.6B-GGUF
 ```
 
-- **llama-cli**: https://github.com/ggerganov/llama.cpp/releases
-- **GGUF**: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
+### 取得元（詳細）
+
+| ファイル | 取得元 | サイズ |
+|----------|--------|------|
+| `llama-cli.exe` | https://github.com/ggml-org/llama.cpp/releases (b10069+ の `llama-b{VERSION}-bin-win-cpu-x64.zip`) | ~17MB |
+| `qwen3-0.6b-q4_k_m.gguf` | https://huggingface.co/Qwen/Qwen3-0.6B-GGUF | ~450MB |
+
+### 取得コマンド例
+
+```bash
+# llama-cli (PowerShell)
+Invoke-WebRequest -Uri https://github.com/ggml-org/llama.cpp/releases/download/b10069/llama-b10069-bin-win-cpu-x64.zip -Outfile llama.zip
+Expand-Archive .\llama.zip -DestinationPath .\llama
+Copy-Item -Path .\llama\llama-cli.exe -Destination .\src\Whisper\llama-cli.exe
+
+# GGUF (HF CLI)
+hf download Qwen/Qwen3-0.6B-GGUF --include "qwen3-0.6b-q4_k_m.gguf" --local-dir src/Whisper/models/llm
+```
+
+詳細は [`docs/models.md`](./models.md) を参照。
 
 これらが無い状態で「要約を実行」を押すと、メインプロセスが明確なエラーメッセージを返します。
 **文字起こし本体には影響しない** — llama-cli / GGUF が見つからない場合のみ警告を出して無視します。
@@ -61,12 +83,12 @@ src/Whisper/
 
 ## 制限事項（試験実装）
 
-- **llama-cli.exe と GGUF は手動配置必須** — エアギャップのため
-- **zip 配布には含めない** — 2GB 制限を超えるため
+- **llama-cli.exe と GGUF は手動配置必須** — エアギャップ + 2GB zip 制限のため
 - **NPM `docx` パッケージが必要** — `npm install docx` を実行
 - **ctx サイズは 32768 固定** — 1時間音声の CSV（~12k tokens）に対応
 - **トークン数は 1024 固定** — 種別ごとに調整可能だが試験実装では未対応
 - **CPU 推論のみ** — GPU 対応は未実装
+- **複数 GGUF は非対応** — 最初に見つかったものを使用
 
 ## ファイル
 
@@ -79,7 +101,8 @@ src/Whisper/
 | `src/main.js` | IPC ハンドラと `handleDocxSave` |
 | `src/renderer.js` | CSV 選択 / 保存 / 実行 / ログタブ |
 | `src/index.html` | 要約カードとログタブ UI |
-| `docs/models.md` | GGUF/llama-cli 配置手順 |
+| [`docs/models.md`](./models.md) | 取得元・配置手順 |
+| [`docs/distribution.md`](./distribution.md) | 配布・組み立て全体像 |
 
 ## 今後の拡張案
 
