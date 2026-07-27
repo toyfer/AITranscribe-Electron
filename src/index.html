@@ -8,8 +8,15 @@
     <script src="./theme-init.js"></script>
     <link href="./css/bootstrap.min.css" rel="stylesheet">
     <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
         body {
             font-family: "BIZ UDGothic", "BIZ UDPGothic", sans-serif;
+            display: flex;
+            flex-direction: column;
         }
         .font-monospace {
             font-family: "BIZ UDGothic", "BIZ UDPGothic", monospace;
@@ -36,11 +43,32 @@
             min-height: 60px;
             resize: none;
         }
+        /* main を flex コンテナにして残り領域を埋める */
+        .main-area {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .main-area > .container {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .main-area > .container > .content-wrapper {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
     </style>
     <title>AI文字起こし</title>
 </head>
 
-<body class="d-flex flex-column vh-100">
+<body>
     <header class="header border-bottom">
         <div class="container">
             <div class="row align-items-center py-2">
@@ -54,9 +82,9 @@
         </div>
     </header>
 
-    <main class="main flex-grow-1 d-flex flex-column overflow-hidden min-vh-0">
-        <div class="container d-flex flex-column flex-grow-1 py-3 min-vh-0">
-            <div class="d-flex flex-column flex-grow-1 gap-3 min-vh-0">
+    <main class="main-area">
+        <div class="container py-3">
+            <div class="content-wrapper">
                 <div class="card">
                     <div class="card-body py-2">
                         <h6 class="card-title text-muted mb-2">モデルの選択</h6>
