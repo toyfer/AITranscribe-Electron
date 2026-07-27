@@ -21,6 +21,9 @@
         .font-monospace {
             font-family: "BIZ UDGothic", "BIZ UDPGothic", monospace;
         }
+        header, footer {
+            flex-shrink: 0;
+        }
         /* 進捗カードをコンパクトに固定 */
         .progress-card .card-body {
             padding: 0.5rem 1rem;
@@ -40,7 +43,7 @@
         }
         .log-card textarea {
             flex: 1 1 0;
-            min-height: 60px;
+            min-height: 0;
             resize: none;
         }
         /* main を flex コンテナにして残り領域を埋める */
@@ -117,7 +120,7 @@
                             <h6 class="card-title text-muted mb-0">ログ</h6>
                             <button type="button" class="btn btn-outline-secondary btn-sm" id="log-clear-button">クリア</button>
                         </div>
-                        <textarea readonly class="form-control font-monospace" rows="4"
+                        <textarea readonly class="form-control font-monospace"
                             id="output-textarea"></textarea>
                     </div>
                 </div>
