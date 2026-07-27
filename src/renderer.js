@@ -4,6 +4,7 @@
  *
  * Local CTranslate2 dirs under src/Whisper/models/<dir>/ — see docs/models.md.
  * Progress: measured events (process:Progress); mul is cold-start fallback only.
+ * Summarize: CSV -> LLM -> docx via process:Summary / return:Summary.
  */
 
 /**
@@ -30,13 +31,31 @@ const MODEL_CATALOG = Object.freeze([
   },
 ]);
 
+/** Summary types (mirrors SummarizeJob). */
+const SUMMARY_TYPES = [
+  { id: "minutes", label: "議事録" },
+  { id: "bullets", label: "箇条書き" },
+  { id: "summary", label: "要約" },
+];
+
 class UIController {
   constructor() {
     this.outputTextareaElement = document.getElementById("output-textarea");
+    this.summaryLogElement = document.getElementById("summary-log");
     this.fileSelectButton = document.getElementById("file-select-button");
     this.filePathElement = document.getElementById("file-path");
     this.runFFmpegButton = document.getElementById("run-ffmpeg");
     this.logClearButton = document.getElementById("log-clear-button");
+
+    this.csvSelectButton = document.getElementById("csv-select-button");
+    this.csvPathElement = document.getElementById("csv-path");
+    this.runSummarizeButton = document.getElementById("run-summarize");
+    this.summaryClearButton = document.getElementById("summary-clear-button");
+    this.csvClearButton = document.getElementById("csv-clear-button");
+    this.summaryTypeButtons = document.querySelectorAll('input[name="summary-type"]');
+    this.logButtons = document.querySelectorAll('button[data-log-tab]');
+    this.logPanes = document.querySelectorAll('[data-log-pane]');
+
     this.modelButtons = document.querySelectorAll('input[name="model"]');
 
     this.audioFile = new Audio();
@@ -46,6 +65,8 @@ class UIController {
 
     /** Full path kept internally; display shows filename only */
     this.fullFilePath = "";
+    /** Full CSV path for summarization. */
+    this.fullCsvPath = "";
 
     if (!window.electronAPI) {
       const msg =
@@ -80,6 +101,11 @@ class UIController {
     return checked ? checked.value : MODEL_CATALOG.find((m) => m.default)?.id || "";
   }
 
+  #getSelectedSummaryType() {
+    const checked = document.querySelector('input[name="summary-type"]:checked');
+    return checked ? checked.value : "bullets";
+  }
+
   /** Extract filename from a full path (Windows backslash + POSIX forward slash). */
   #basename(fullPath) {
     if (!fullPath) return "";
@@ -95,10 +121,45 @@ class UIController {
       this.outputTextareaElement.value = "";
     });
 
+    if (this.csvSelectButton) {
+      this.csvSelectButton.addEventListener("click", () => this.#pickCsvFile());
+    }
+    if (this.runSummarizeButton) {
+      this.runSummarizeButton.addEventListener("click", () => this.#onSummarize());
+    }
+    if (this.summaryClearButton) {
+      this.summaryClearButton.addEventListener("click", () => {
+        if (this.summaryLogElement) this.summaryLogElement.value = "";
+      });
+    }
+    if (this.csvClearButton) {
+      this.csvClearButton.addEventListener("click", () => {
+        this.fullCsvPath = "";
+        if (this.csvPathElement) this.csvPathElement.value = "";
+      });
+    }
+
+    // Log tab switching
+    for (const btn of this.logButtons) {
+      btn.addEventListener("click", () => this.#switchLogTab(btn.dataset.logTab));
+    }
+
     this.audioFile.addEventListener("loadedmetadata", () => {
       console.log(this.audioFile.duration);
       this.audioDuration = this.audioFile.duration;
     });
+  }
+
+  #switchLogTab(target) {
+    for (const btn of this.logButtons) {
+      const active = btn.dataset.logTab === target;
+      btn.classList.toggle("btn-primary", active);
+      btn.classList.toggle("btn-outline-primary", !active);
+    }
+    for (const pane of this.logPanes) {
+      const active = pane.dataset.logPane === target;
+      pane.classList.toggle("d-none", !active);
+    }
   }
 
   #bindIpc() {
@@ -108,11 +169,20 @@ class UIController {
       this.outputTextareaElement.scrollTop = this.outputTextareaElement.scrollHeight;
     });
 
+    if (window.electronAPI.returnSummary) {
+      window.electronAPI.returnSummary((_event, output) => {
+        console.log(output);
+        if (this.summaryLogElement) {
+          this.summaryLogElement.value += output;
+          this.summaryLogElement.scrollTop = this.summaryLogElement.scrollHeight;
+        }
+      });
+    }
+
     window.electronAPI.processMessage((_event, message) => {
       new Notification("Ai文字起こし", { body: message });
       this.setUiBusy(false);
-      // complete イベントが先に endProgress 済みなら mode === "idle"
-      // processMessage は成功・失敗両方。metrics 付き complete が無い失敗時用
+      this.setSummarizeUiBusy(false);
       if (this.progressBar.mode !== "idle") {
         const failed = /エラー|失敗|不足|見つかりません/i.test(String(message));
         this.progressBar.endProgress(!failed);
@@ -125,6 +195,19 @@ class UIController {
         this.progressBar.onProgressEvent(payload);
       });
     }
+
+    if (typeof window.electronAPI.processSummary === "function") {
+      window.electronAPI.processSummary((_event, payload) => {
+        console.log("[summary progress]", payload);
+        // We just route raw phases to a global log; UI is read-only
+        if (payload && payload.label) {
+          if (this.summaryLogElement) {
+            this.summaryLogElement.value += `[${new Date().toLocaleTimeString("ja-JP")}] ${payload.label}\n`;
+            this.summaryLogElement.scrollTop = this.summaryLogElement.scrollHeight;
+          }
+        }
+      });
+    }
   }
 
   async #pickAudioFile() {
@@ -133,7 +216,6 @@ class UIController {
       if (filePath) {
         this.fullFilePath = filePath;
         this.filePathElement.value = this.#basename(filePath);
-        // file:// プロトコルでローカルパスを読む（Windows パスはそのままで可）
         this.audioFile.src = filePath.startsWith("file:")
           ? filePath
           : `file:///${filePath.replace(/\\/g, "/")}`;
@@ -144,12 +226,35 @@ class UIController {
     }
   }
 
+  async #pickCsvFile() {
+    try {
+      const filePath = await window.electronAPI.openCsv();
+      if (filePath) {
+        this.fullCsvPath = filePath;
+        this.csvPathElement.value = this.#basename(filePath);
+      }
+    } catch (err) {
+      console.error(err);
+      alert(`CSV 選択に失敗しました: ${err && err.message ? err.message : err}`);
+    }
+  }
+
   setUiBusy(isBusy) {
     this.jobBusy = isBusy;
     this.runFFmpegButton.disabled = isBusy;
     this.runFFmpegButton.innerText = isBusy ? "処理中…" : "スタート";
     this.fileSelectButton.disabled = isBusy;
     this.modelButtons.forEach((btn) => (btn.disabled = isBusy));
+  }
+
+  setSummarizeUiBusy(isBusy) {
+    if (this.runSummarizeButton) {
+      this.runSummarizeButton.disabled = isBusy;
+      this.runSummarizeButton.innerText = isBusy ? "要約中…" : "要約を実行";
+    }
+    if (this.csvSelectButton) this.csvSelectButton.disabled = isBusy;
+    if (this.csvClearButton) this.csvClearButton.disabled = isBusy;
+    for (const btn of this.summaryTypeButtons) btn.disabled = isBusy;
   }
 
   /** Map catalog id → IPC payload. Does not mutate audioDuration. */
@@ -185,9 +290,42 @@ class UIController {
     }
 
     this.setUiBusy(true);
-    // fallback timer only until first measured event arrives
     this.progressBar.startProgress(selectModel.estimatedDuration);
     window.electronAPI.runFFmpeg([this.fullFilePath, selectModel]);
+  }
+
+  async #onSummarize() {
+    if (!this.fullCsvPath) {
+      alert("CSV ファイルを選択してください");
+      return;
+    }
+    if (typeof window.electronAPI.saveDocx !== "function") {
+      alert("docx 保存ダイアログが利用できません");
+      return;
+    }
+    const baseName = this.#basename(this.fullCsvPath).replace(/\.csv$/i, "");
+    const defaultName = `${baseName}_summary.docx`;
+    let outputPath;
+    try {
+      outputPath = await window.electronAPI.saveDocx(defaultName);
+    } catch (err) {
+      console.error(err);
+      alert(`保存先選択に失敗しました: ${err && err.message ? err.message : err}`);
+      return;
+    }
+    if (!outputPath) return;
+
+    this.setSummarizeUiBusy(true);
+    if (this.summaryLogElement) {
+      this.summaryLogElement.value = "";
+      this.summaryLogElement.value += `[${new Date().toLocaleTimeString("ja-JP")}] 要約を開始します\n`;
+    }
+    window.electronAPI.runSummarize({
+      csvPath: this.fullCsvPath,
+      outputPath,
+      type: this.#getSelectedSummaryType(),
+      options: {},
+    });
   }
 }
 
