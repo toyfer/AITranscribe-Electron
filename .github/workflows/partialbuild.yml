@@ -1,6 +1,10 @@
 name: PartialBuild AITranscribe-Electron for Windows
 
-# Partial online assembly (models often supplied separately for air-gap).
+# Online assembly WITHOUT zip creation — produces workflow artifacts only.
+# Used for CI checks (does the build succeed? do all pieces download?).
+# GitHub Release zip is produced by fullbuild (workflow_dispatch or push tag).
+#
+# NOTE: Whisper モデル・llama-cli・GGUF は含めない (docs/models.md 参照)。
 # バージョン管理: package.json は 0.1 固定。日付+git short で識別。
 
 on:
@@ -51,13 +55,15 @@ jobs:
           Copy-Item .\requirements-whisper.txt .\src\Whisper\requirements-whisper.txt
           .\src\Whisper\Python.exe -m pip install -r .\src\Whisper\requirements-whisper.txt
 
+      # NOTE: モデル・llama-cli・GGUF は取得しない (zip 2GB 制限のため含めない)。
+
       - name: Build Electron project for Windows
         run: npm run build_win
         env:
           BUILD_DATE: ${{ env.BUILD_DATE }}
           GIT_SHORT: ${{ env.GIT_SHORT }}
 
-      - name: Archive artifacts
+      - name: Archive workflow artifact (no zip, no release)
         uses: actions/upload-artifact@v4
         with:
           name: AITranscribe-Electron_Partial
@@ -66,3 +72,5 @@ jobs:
             package-lock.json
             requirements-whisper.txt
             !build/win-unpacked/**/Whisper/models/**
+            !build/win-unpacked/**/Whisper/llama-cli.exe
+            !build/win-unpacked/**/Whisper/models/llm/**

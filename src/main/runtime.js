@@ -3,7 +3,8 @@ const path = require("path");
 
 /**
  * Air-gap runtime layout under src/Whisper/.
- * FFmpeg / Python Embeddable / models are NOT in git — preflight only checks local paths.
+ * FFmpeg / Python Embeddable / Whisper models / llama-cli / GGUF are NOT in git.
+ * preflight only checks local paths.
  */
 class RuntimeLayout {
   /**
@@ -23,19 +24,53 @@ class RuntimeLayout {
 
   /**
    * Light check for required binaries (models checked when a job starts).
-   * @returns {{ ffmpegPath: string, pythonPath: string, missing: string[] }}
+   * llama-cli / GGUF are optional: missing them is reported but does not block
+   * the main transcription flow.
+   * @returns {{
+   *   ffmpegPath: string,
+   *   pythonPath: string,
+   *   llamaCliPath: string,
+   *   ggufPaths: string[],
+   *   missing: string[],
+   *   llamaMissing: string[]
+   * }}
    */
   checkRuntimeLayout() {
     const ffmpegPath = this.resolveBundledPath("ffmpeg.exe");
     const pythonPath = this.resolveBundledPath("python.exe");
+    const llamaCliPath = this.resolveBundledPath(
+      process.platform === "win32" ? "llama-cli.exe" : "llama-cli"
+    );
+    const ggufDir = this.resolveBundledPath("models", "llm");
     const missing = [];
+    const llamaMissing = [];
     if (!fs.existsSync(ffmpegPath)) {
       missing.push("Whisper/ffmpeg.exe（ライセンス都合で同梱しない・手動配置）");
     }
     if (!fs.existsSync(pythonPath)) {
       missing.push("Whisper/python.exe（Python Embeddable 展開先）");
     }
-    return { ffmpegPath, pythonPath, missing };
+    // llama-cli: warn but don't fail app start
+    if (!fs.existsSync(llamaCliPath)) {
+      llamaMissing.push(
+        "Whisper/llama-cli.exe (llama.cpp 単一バイナリ・手動配置・要約機能を使う場合に必要)"
+      );
+    }
+    // GGUF model directory: scan for *.gguf
+    const ggufPaths = [];
+    if (fs.existsSync(ggufDir)) {
+      for (const name of fs.readdirSync(ggufDir)) {
+        if (name.toLowerCase().endsWith(".gguf")) {
+          ggufPaths.push(path.join(ggufDir, name));
+        }
+      }
+    }
+    if (ggufPaths.length === 0) {
+      llamaMissing.push(
+        "Whisper/models/llm/*.gguf (Qwen3-0.6B GGUF Q4_K_M 推奨・手動配置・要約機能を使う場合に必要)"
+      );
+    }
+    return { ffmpegPath, pythonPath, llamaCliPath, ggufPaths, missing, llamaMissing };
   }
 
   /**

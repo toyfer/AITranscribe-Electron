@@ -1,7 +1,15 @@
 name: FullBuild AITranscribe-Electron for Windows
 
-# Online assembly: npm ci + FFmpeg + Python Embeddable + models + electron-builder.
-# On tag v*: also attach zip to the GitHub Release assets.
+# Online assembly: npm ci + FFmpeg + Python Embeddable + models + llama-cli + GGUF + electron-builder.
+#
+# 2 種類の成果物を作る:
+#   1. **Workflow artifact (全入り)**: 容量無制限。
+#      Whisper モデル・llama-cli・GGUF を含む完全版。
+#      開発者 / CI 検証用。
+#   2. **Release zip (モデル抜き)**: 2GB 制限のため Whisper モデル・
+#      llama-cli・GGUF を除いたアプリ本体のみ。
+#      ユーザーが docs/models.md を参照して手動で取得・配置する。
+#      タグ push 時に GitHub Release に添付。
 #
 # バージョン管理: package.json は 0.1 固定。
 # 日付と git コミットハッシュでユニーク性を担保。
@@ -49,10 +57,24 @@ jobs:
       - name: Python Embeddable Download (pinned 3.11.4)
         run: Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
 
-      - name: Faster-Whisper models (small + turbo only)
+      - name: Faster-Whisper models (small + turbo)
+        # 容量無制限の artifact に含める。Release zip からは除外する。
         run: |
           git clone --depth 1 https://huggingface.co/Systran/faster-whisper-small .\src\Whisper\models\small\
           git clone --depth 1 https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2 .\src\Whisper\models\turbo\
+
+      - name: llama-cli (CPU, b10069+)
+        # 要約機能を使う人のため。同梱しておく。
+        run: |
+          Invoke-WebRequest -Uri https://github.com/ggml-org/llama.cpp/releases/download/b10069/llama-b10069-bin-win-cpu-x64.zip -Outfile llama.zip
+          Expand-Archive .\llama.zip -DestinationPath .\llama
+          Copy-Item -Path .\llama\llama-cli.exe .\src\Whisper\llama-cli.exe
+
+      - name: GGUF model (Qwen3-0.6B Q4_K_M)
+        # 要約機能を使う人のため。同梱しておく。
+        run: |
+          New-Item -ItemType Directory -Force -Path .\src\Whisper\models\llm
+          Invoke-WebRequest -Uri https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/qwen3-0.6b-q4_k_m.gguf -Outfile .\src\Whisper\models\llm\qwen3-0.6b-q4_k_m.gguf
 
       - name: Setup FFmpeg + Embeddable + pinned pip deps
         run: |
@@ -75,22 +97,76 @@ jobs:
       - name: List build outputs
         run: Get-ChildItem -Recurse build | Select-Object FullName, Length
 
-      - name: Upload workflow artifact
+      - name: Build release zip without large models
+        # Release zip は 2GB 制限があるため、Whisper モデルと GGUF を除外して再 zip する。
+        # electron-builder の zip をそのまま使うと全入りなので、
+        # ワークフロー上で「モデル抜き zip」を別途組み立てる。
+        shell: pwsh
+        run: |
+          $src = "build\win-unpacked"
+          if (-not (Test-Path $src)) {
+            Write-Error "build\win-unpacked not found"
+            exit 1
+          }
+          $stage = "build\release-staging"
+          if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          # Electron 出力ディレクトリ構造を丸ごとコピー (asar:false)
+          Copy-Item -Path "$src\*" -Destination $stage -Recurse -Force
+          # モデル・llama-cli・GGUF を zip から除外
+          # 起動時にランタイム未配置エラーが出る想定で、ユーザは docs/models.md を参照して別途取得
+          $toRemove = @(
+            "Whisper\models\small",
+            "Whisper\models\turbo",
+            "Whisper\llama-cli.exe",
+            "Whisper\models\llm"
+          )
+          foreach ($p in $toRemove) {
+            $full = Join-Path $stage $p
+            if (Test-Path $full) {
+              Remove-Item -Recurse -Force $full
+              Write-Host "Removed from release zip: $p"
+            }
+          }
+          # リリース zip を作成
+          $date = $env:BUILD_DATE
+          $git = $env:GIT_SHORT
+          $releaseZipName = "AITranscribe-Electron-v0.1-${date}-${git}-x64.zip"
+          $releaseZip = "build\$releaseZipName"
+          if (Test-Path $releaseZip) { Remove-Item -Force $releaseZip }
+          Add-Type -AssemblyName "System.IO.Compression.FileSystem"
+          [System.IO.Compression.ZipFile]::CreateFromDirectory($stage, $releaseZip)
+          $sizeGB = [math]::Round((Get-Item $releaseZip).Length / 1GB, 2)
+          Write-Host "Release zip: $releaseZipName = $sizeGB GB"
+          if ((Get-Item $releaseZip).Length -gt 2GB) {
+            Write-Error "Release zip exceeds 2GB ($sizeGB GB). GitHub Release will reject."
+            exit 1
+          }
+
+      - name: Upload workflow artifact (full, unbounded size)
+        # 開発者 / CI 検証用。全入り。容量無制限。
         uses: actions/upload-artifact@v4
         with:
-          name: AITranscribe-Electron
+          name: AITranscribe-Electron-full
           path: |
-            build/*.zip
+            build/win-unpacked/
             package-lock.json
             requirements-whisper.txt
             LICENSE
             THIRD_PARTY_NOTICES.md
 
-      - name: Attach zip to GitHub Release (tags only)
+      - name: Upload release zip artifact
+        # GitHub Release に添付する zip。2GB 以下。
+        uses: actions/upload-artifact@v4
+        with:
+          name: AITranscribe-Electron-release
+          path: build/AITranscribe-Electron-v0.1-*-x64.zip
+
+      - name: Attach release zip to GitHub Release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: build/*.zip
+          files: build/AITranscribe-Electron-v0.1-*-x64.zip
           generate_release_notes: true
           fail_on_unmatched_files: true
         env:

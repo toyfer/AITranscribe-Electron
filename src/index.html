@@ -27,10 +27,8 @@
          └─ .container(flex-grow-1.d-flex.flex-column)
               ├─ .card モデル選択 (固定)
               ├─ .card 進捗 (固定)
-              └─ .card ログ (flex:1 1 0, min-height:0)
-                   └─ .card-body(flex:1 1 0, min-height:0, d-flex.flex-column)
-                        ├─ ヘッダ行 (固定)
-                        └─ textarea(flex:1 1 0, min-height:0)
+              ├─ .card 要約 (CSV 選択 + 種類選択 + 実行) (固定)
+              └─ .card ログ (flex:1 1 0, min-height:0, タブ切替)
     └─ footer (固定)
 -->
 <body class="d-flex flex-column min-vh-100">
@@ -64,7 +62,7 @@
                 </div>
             </div>
 
-            <div class="card mb-3">
+            <div class="card progress-card mb-3">
                 <div class="card-body">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <h6 class="card-title text-muted mb-0 text-nowrap">進捗</h6>
@@ -77,15 +75,64 @@
                 </div>
             </div>
 
-            <!-- ログカード: 単一flexチェーンの最終段で flex:1 1 0 -->
-            <div class="card flex-grow-1 d-flex flex-column" style="min-height: 0;">
-                <div class="card-body flex-grow-1 d-flex flex-column" style="min-height: 0;">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="card-title text-muted mb-0">ログ</h6>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="log-clear-button">クリア</button>
+            <!-- 要約カード: CSV 選択 + タイプ + 実行 (試験実装) -->
+            <div class="card mb-3">
+                <div class="card-body py-2">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-7">
+                            <div class="input-group input-group-sm">
+                                <input readonly type="text" class="form-control" id="csv-path"
+                                    placeholder="CSV ファイルを選択してください">
+                                <button type="button" class="btn btn-outline-secondary" id="csv-clear-button"
+                                    title="クリア">×</button>
+                                <button type="button" class="btn btn-outline-primary" id="csv-select-button">CSV 選択</button>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="btn-group btn-group-sm w-100" role="group" aria-label="要約種別">
+                                <input type="radio" class="btn-check" name="summary-type" id="type-bullets"
+                                    autocomplete="off" value="bullets" checked>
+                                <label class="btn btn-outline-primary" for="type-bullets">箇条書き</label>
+
+                                <input type="radio" class="btn-check" name="summary-type" id="type-minutes"
+                                    autocomplete="off" value="minutes">
+                                <label class="btn btn-outline-primary" for="type-minutes">議事録</label>
+
+                                <input type="radio" class="btn-check" name="summary-type" id="type-summary"
+                                    autocomplete="off" value="summary">
+                                <label class="btn btn-outline-primary" for="type-summary">要約</label>
+                            </div>
+                        </div>
+                        <div class="col-md-2 d-grid">
+                            <button type="button" class="btn btn-success btn-sm" id="run-summarize">要約を実行</button>
+                        </div>
                     </div>
-                    <textarea readonly class="form-control font-monospace flex-grow-1" id="output-textarea"
-                        style="min-height: 0; resize: none;"></textarea>
+                </div>
+            </div>
+
+            <!-- ログカード: タブ切替で「文字起こし / 要約」を切替 -->
+            <div class="card flex-grow-1 d-flex flex-column" style="min-height: 0;">
+                <div class="card-body flex-grow-1 d-flex flex-column p-0" style="min-height: 0;">
+                    <div class="d-flex justify-content-between align-items-center p-3 pb-2">
+                        <div class="btn-group btn-group-sm" role="group" aria-label="ログ切替">
+                            <button type="button" class="btn btn-primary" data-log-tab="transcribe"
+                                id="log-tab-transcribe">文字起こしログ</button>
+                            <button type="button" class="btn btn-outline-primary" data-log-tab="summary"
+                                id="log-tab-summary">要約ログ</button>
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="log-clear-button"
+                            data-clear-target="active">クリア</button>
+                    </div>
+                    <div class="flex-grow-1 position-relative" style="min-height: 0;">
+                        <textarea readonly class="form-control font-monospace position-absolute top-0 start-0 end-0 bottom-0"
+                            id="output-textarea"
+                            style="min-height: 0; resize: none; border-top-left-radius: 0; border-top-right-radius: 0;"
+                            data-log-pane="transcribe"></textarea>
+                        <textarea readonly class="form-control font-monospace position-absolute top-0 start-0 end-0 bottom-0 d-none"
+                            id="summary-log"
+                            style="min-height: 0; resize: none; border-top-left-radius: 0; border-top-right-radius: 0;"
+                            data-log-pane="summary"></textarea>
+                    </div>
                 </div>
             </div>
 
