@@ -8,12 +8,12 @@
 
 | 場所 | やること | やらないこと |
 |------|----------|--------------|
-| **開発機 / CI（オンライン）** | `npm ci`、Electron ビルド、FFmpeg/Python Embeddable の取得 | モデル / llama-cli / GGUF の取得と zip への同梱 |
-| **ユーザー / エアギャップ機** | zip のダウンロード・展開、モデル・llama-cli・GGUF の取得・配置 | ネットからの自動モデル取得（エアギャップ前提） |
+| **開発機 / CI（オンライン）** | `npm ci`、Electron ビルド、FFmpeg/Python Embeddable・Whisper モデル・llama-cli・GGUF の取得 | （特になし。全部入りで OK） |
+| **ユーザー / エアギャップ機** | Release zip のダウンロード・展開、起動確認。モデル類は手動配置 | ネットからの自動モデル取得（エアギャップ前提） |
 
 アプリは不足コンポーネントがあると**ダウンロードせずエラー**にします。
 
-> **重要**: AITranscribe-Electron の GitHub Release zip には **Whisper モデル・llama-cli・GGUF を含みません**。これらは zip の 2GB 制限を超えるためで、ユーザーが手動で取得・配置します。取得先は [`docs/models.md`](./models.md) を参照。
+> **重要**: AITranscribe-Electron の **GitHub Release zip には Whisper モデル・llama-cli・GGUF を含みません**（2GB 制限のため）。**GitHub Actions の fullbuild artifact には全入り**で含まれます（容量無制限）。詳細は [`docs/models.md`](./models.md) を参照。
 
 ---
 
@@ -22,20 +22,35 @@
 | Workflow | 用途 | 成果物の性格 | サイズ |
 |----------|------|----------------|------|
 | **regenerate-lock** | `package-lock.json` だけ再生成して push | 依存固定 | 小 |
-| **fullbuild** | Node 24 + `npm ci` + FFmpeg/Python 取得 + `build_win` | **モデル抜きフルアプリ** (zip) | ~500MB |
-| **partialbuild** | モデル・Embeddable 込み | アプリ本体 (artifact 用) | ~1GB |
+| **fullbuild** | Node 24 + `npm ci` + FFmpeg/Python + Whisper モデル + llama-cli + GGUF + `build_win` | **2種類** を出力 | (下表) |
+
+### fullbuild の成果物（2種類）
+
+| 成果物 | 場所 | 含まれるもの | サイズ目安 |
+|--------|------|--------------|----------|
+| **workflow artifact: `AITranscribe-Electron-full`** | Actions タブ → 該当 run → Artifacts | アプリ + FFmpeg + Python + faster-whisper site-packages + **Whisper モデル (small, turbo) + llama-cli + GGUF** | ~2.5GB (リポジトリ storage quota 内) |
+| **workflow artifact + Release zip: `AITranscribe-Electron-v0.1-YYYYMMDD-GITSHORT-x64.zip`** | GitHub Release ページ | アプリ + FFmpeg + Python + site-packages + ドキュメント **のみ**（モデル・llama-cli・GGUF 抜き） | ~500MB (2GB 以下) |
+
+GitHub Actions artifact は **容量無制限**（リポジトリの storage quota のみ）なので、モデル込みで全入り artifact を作れます。一方 GitHub Release zip は **2GB 制限** があるため、モデル抜き zip を別途組み立てて attach します。
+
+### ダウンロード経路の選択
+
+| 目的 | 使うもの |
+|------|---------|
+| **開発・CI 検証・すぐ動かしたい** | fullbuild artifact (`AITranscribe-Electron-full`) をダウンロード |
+| **エンドユーザに配布・エアギャップ搬入** | GitHub Release の zip (`AITranscribe-Electron-v0.1-...-x64.zip`) をダウンロード → 別途モデル手動配置 |
 
 ### fullbuild とエアギャップの関係
 
 - fullbuild は便利な **オンライン組み立てパイプライン**です
-- 成果物 zip は **モデル抜き** で、容量は ~500MB
-- ユーザーは zip を展開後、`docs/models.md` を参照して手動でモデルを配置
+- **artifact には全入り**で、容量無制限
+- ユーザーは Release zip を取得 → `docs/models.md` を参照してモデル手動配置
 - 現場配布の推奨形:
   1. **アプリ zip**（Electron 成果物 + LICENSE + THIRD_PARTY_NOTICES + docs）— `releases` からダウンロード
   2. **Whisper モデル** を別途取得（HF から `git clone` or `hf download`）
   3. **llama-cli / GGUF**（要約機能を使う場合のみ）
 
-### 容量まとめ（zip 内訳）
+### 容量まとめ
 
 | 項目 | サイズ |
 |------|------|
@@ -43,14 +58,15 @@
 | FFmpeg | ~80MB |
 | Python Embeddable | ~30MB |
 | site-packages (faster-whisper + 依存) | ~150MB |
-| llama-cli.exe | (~17MB / 試験実装では含めず) |
-| Whisper モデル (small) | (~460MB / 含めず) |
-| Whisper モデル (turbo) | (~1.5GB / 含めず) |
-| GGUF (Qwen3-0.6B Q4_K_M) | (~450MB / 含めず) |
+| llama-cli.exe | ~17MB |
+| Whisper モデル (small) | ~460MB |
+| Whisper モデル (turbo) | ~1.5GB |
+| GGUF (Qwen3-0.6B Q4_K_M) | ~450MB |
 
-zip 制限 2GB に対し、含める分は約 **500MB** に収まる。
-
-> **GitHub Actions artifact**: 容量無制限（リポジトリの storage quota のみ）なので、必要なら fullbuild を改造してモデル込み artifact を作ることも可能。ただし **Release zip への添付は 2GB 制限** があるため、ユーザーダウンロードを考えると「モデル抜き」が現実的。
+| zip 種別 | 合計サイズ |
+|----------|----------|
+| **Release zip (モデル抜き)** | **~500MB** (2GB 以内) |
+| **artifact (全入り)** | **~2.8GB** (容量無制限) |
 
 ---
 
@@ -71,9 +87,10 @@ zip 制限 2GB に対し、含める分は約 **500MB** に収まる。
 3. Python Embeddable 3.11.4 を src/Whisper に展開し import site + pip install -r requirements-whisper.txt
 4. モデルを models/{small,turbo} に配置（docs/models.md）
 5. ライセンス確認のうえ ffmpeg.exe を配置
-6. npm run build_win
-7. 成果物と Whisper 一式を別々にアーカイブし、チェックサム（SHA-256）を記録
-8. 媒体へコピー → エアギャップ機へ
+6. llama-cli / GGUF を配置（要約機能を使う場合）
+7. npm run build_win
+8. 成果物と Whisper 一式を別々にアーカイブし、チェックサム（SHA-256）を記録
+9. 媒体へコピー → エアギャップ機へ
 ```
 
 既定 UI は **turbo**。未配置モデルは UI で他を選ぶか、配置してから実行。
