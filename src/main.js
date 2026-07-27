@@ -14,6 +14,13 @@ const runtime = new RuntimeLayout(__dirname);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
+    // 固定サイズ: リサイズによる UI 崩れを防ぐ
+    // ログ・進捗が伸びてもウィンドウ内に収まるサイズに設計
+    width: 800,
+    height: 720,
+    minWidth: 600,
+    minHeight: 540,
+    resizable: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -28,6 +35,8 @@ function createWindow() {
 function sendProcessMessage(message) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(CHANNELS.PROCESS_MESSAGE, message);
+    // Clear taskbar progress on any job completion (success or failure)
+    mainWindow.setProgressBar(-1);
   }
 }
 
@@ -40,6 +49,10 @@ function sendCommandOutput(message) {
 function sendProgress(payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(CHANNELS.PROCESS_PROGRESS, payload);
+    // Taskbar progress bar (0.0–1.0, -1 to clear)
+    if (payload.pct != null && typeof payload.pct === "number") {
+      mainWindow.setProgressBar(Math.max(0, Math.min(1, payload.pct / 100)));
+    }
   }
 }
 

@@ -4,69 +4,106 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; media-src 'self' blob:">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; media-src 'self' blob:" />
+    <script src="../theme-init.js"></script>
     <link href="../css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        body {
+            font-family: "BIZ UDGothic", "BIZ UDPGothic", "Yu Gothic UI", "Meiryo UI", sans-serif;
+        }
+        .text-link {
+            cursor: pointer;
+            text-decoration: underline dotted;
+        }
+        .text-link:hover {
+            text-decoration: underline;
+        }
+    </style>
     <title>文字起こしサポーター</title>
 </head>
 
-<body>
-    <header class="header">
-        <div class="container">
+<!--
+  App shell: 単一の flex チェーン
+  body(d-flex.flex-column.min-vh-100)
+    └─ header (固定)
+    └─ main(flex-grow-1.overflow-hidden.d-flex.flex-column)
+         └─ .container(flex-grow-1.d-flex.flex-column)
+              ├─ .row ファイル選択 (固定)
+              └─ .card 発言テーブル (flex:1 1 0, min-height:0)
+                   └─ .card-body(flex:1 1 0, min-height:0, d-flex.flex-column, p-0)
+                        └─ .csv-table-wrapper(flex:1 1 0, min-height:0, overflow-y:auto)
+    └─ footer 再生プレイヤー (固定, 常に最下層)
+-->
+<body class="d-flex flex-column min-vh-100">
+
+    <header class="border-bottom">
+        <div class="container py-2">
+            <div class="row align-items-center g-2">
+                <div class="col">
+                    <h2 id="title-label" class="mb-0 fs-3">文字起こしサポーター</h2>
+                </div>
+                <div class="col-auto">
+                    <a class="btn btn-outline-secondary btn-sm" href="../index.html">戻る</a>
+                </div>
+            </div>
             <div class="row">
                 <div class="col-12">
-                    <h2 id="title-label">文字起こしサポーター</h2>
-                </div>
-
-                <div class="col-10">
-                    <p>CSVと音声ファイルを読み込んで、聞きたい箇所の[TEXT]列をクリックすると、選択した時間から音声が再生されます。</p>
-                </div>
-
-                <div class="col-2 d-grid gap-2">
-                    <a class="btn btn-secondary" href="../index.html">戻る</a>
-                </div>
-
-                <div class="col-6">
-                    <label for="csvFileInput" class="form-label">CSVファイル</label>
-                    <input class="form-control" type="file" id="csvFileInput" accept=".csv" />
-                </div>
-
-                <div class="col-6">
-                    <label for="audioFileInput" class="form-label">音声ファイル</label>
-                    <input class="form-control" type="file" id="audioFileInput" accept=".mp3,.wav,.m4a,.flac,.ogg,.wma" />
+                    <p class="text-muted small mb-0 mt-1">CSVと音声ファイルを読み込んで、聞きたい箇所のテキストをクリックすると、その時間から音声が再生されます。</p>
                 </div>
             </div>
         </div>
     </header>
 
-    <hr />
+    <main class="flex-grow-1 overflow-hidden d-flex flex-column">
+        <div class="container py-3 flex-grow-1 d-flex flex-column">
 
-    <main class="main">
-        <div class="container">
-            <div class="row">
-                <div class="col">
-                    <table class="table table-bordered table-sm table-hover">
-                        <thead>
-                            <tr>
-                                <th>Point</th>
-                                <th>Start</th>
-                                <th>End</th>
-                                <th>Text</th>
-                            </tr>
-                        </thead>
-                        <tbody id="csvTableBody"></tbody>
-                    </table>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted mb-2">CSVファイル</h6>
+                            <input class="form-control form-control-sm" type="file" id="csvFileInput" accept=".csv" />
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted mb-2">音声ファイル</h6>
+                            <input class="form-control form-control-sm" type="file" id="audioFileInput" accept=".mp3,.wav,.m4a,.flac,.ogg,.wma" />
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            <!-- 発言テーブル: 単一flexチェーンの最終段で flex:1 1 0 -->
+            <div class="card flex-grow-1 d-flex flex-column" style="min-height: 0;">
+                <div class="card-body flex-grow-1 d-flex flex-column p-0" style="min-height: 0;">
+                    <div class="csv-table-wrapper flex-grow-1" style="min-height: 0; overflow-y: auto;">
+                        <table class="table table-bordered table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 60px;">No.</th>
+                                    <th style="width: 80px;">開始</th>
+                                    <th style="width: 80px;">終了</th>
+                                    <th>テキスト</th>
+                                </tr>
+                            </thead>
+                            <tbody id="csvTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 
-    <footer class="footer">
-        <div class="container">
-            <div class="row">
-                <div class="col">
-                    <div class="fixed-bottom bg-white border">
-                        <audio id="audio" class="float-end"></audio>
-                    </div>
+    <!-- 再生プレイヤー: 独立した最下層。テーブルの flex-grow と無関係に常に表示 -->
+    <footer class="border-top">
+        <div class="container py-2">
+            <div class="card">
+                <div class="card-body py-2">
+                    <audio id="audio" class="w-100" controls></audio>
                 </div>
             </div>
         </div>

@@ -13,7 +13,7 @@
 const MODEL_CATALOG = Object.freeze([
   {
     id: "small",
-    label: "速度重視 — small（軽量・CPU向け）",
+    label: "速度重視",
     dir: "small",
     hf: "Systran/faster-whisper-small",
     estimatedDurationMul: 0.7,
@@ -21,7 +21,7 @@ const MODEL_CATALOG = Object.freeze([
   },
   {
     id: "turbo",
-    label: "精度重視（デフォルト）— large-v3-turbo",
+    label: "精度重視（推奨）",
     dir: "turbo",
     hf: "deepdml/faster-whisper-large-v3-turbo-ct2",
     // CPU int8 では small より重いのが普通（旧 0.55 は過小になりやすい）
@@ -35,14 +35,17 @@ class UIController {
     this.outputTextareaElement = document.getElementById("output-textarea");
     this.fileSelectButton = document.getElementById("file-select-button");
     this.filePathElement = document.getElementById("file-path");
-    this.selectModelElement = document.getElementById("select-model");
     this.runFFmpegButton = document.getElementById("run-ffmpeg");
-    this.modelHintElement = document.getElementById("model-hint");
+    this.logClearButton = document.getElementById("log-clear-button");
+    this.modelButtons = document.querySelectorAll('input[name="model"]');
 
     this.audioFile = new Audio();
     this.audioDuration = 0;
     this.progressBar = new ProgressBar();
     this.jobBusy = false;
+
+    /** Full path kept internally; display shows filename only */
+    this.fullFilePath = "";
 
     if (!window.electronAPI) {
       const msg =
@@ -56,20 +59,15 @@ class UIController {
       return;
     }
 
-    this.#populateModelSelect();
+    this.#populateModelButtons();
     this.#bindEvents();
     this.#bindIpc();
-    this.#updateModelHint();
   }
 
-  #populateModelSelect() {
-    this.selectModelElement.innerHTML = "";
+  #populateModelButtons() {
     for (const entry of MODEL_CATALOG) {
-      const opt = document.createElement("option");
-      opt.value = entry.id;
-      opt.textContent = entry.label;
-      if (entry.default) opt.selected = true;
-      this.selectModelElement.appendChild(opt);
+      const radio = document.querySelector(`input[name="model"][value="${entry.id}"]`);
+      if (radio) radio.checked = entry.default;
     }
   }
 
@@ -77,22 +75,25 @@ class UIController {
     return MODEL_CATALOG.find((m) => m.id === id) || null;
   }
 
-  #updateModelHint() {
-    if (!this.modelHintElement) return;
-    const entry = this.#findModel(this.selectModelElement.value);
-    if (!entry) {
-      this.modelHintElement.textContent = "";
-      return;
-    }
-    this.modelHintElement.textContent =
-      `配置: src/Whisper/models/${entry.dir}/  ← ${entry.hf}（オフライン事前配置・docs/models.md） · 進捗は実測ベース`;
+  #getSelectedModelId() {
+    const checked = document.querySelector('input[name="model"]:checked');
+    return checked ? checked.value : MODEL_CATALOG.find((m) => m.default)?.id || "";
+  }
+
+  /** Extract filename from a full path (Windows backslash + POSIX forward slash). */
+  #basename(fullPath) {
+    if (!fullPath) return "";
+    const normalized = fullPath.replace(/\\/g, "/");
+    const parts = normalized.split("/");
+    return parts[parts.length - 1] || "";
   }
 
   #bindEvents() {
     this.fileSelectButton.addEventListener("click", () => this.#pickAudioFile());
-    this.filePathElement.addEventListener("click", () => this.#pickAudioFile());
     this.runFFmpegButton.addEventListener("click", () => this.#onStart());
-    this.selectModelElement.addEventListener("change", () => this.#updateModelHint());
+    this.logClearButton.addEventListener("click", () => {
+      this.outputTextareaElement.value = "";
+    });
 
     this.audioFile.addEventListener("loadedmetadata", () => {
       console.log(this.audioFile.duration);
@@ -130,7 +131,8 @@ class UIController {
     try {
       const filePath = await window.electronAPI.openFile();
       if (filePath) {
-        this.filePathElement.value = filePath;
+        this.fullFilePath = filePath;
+        this.filePathElement.value = this.#basename(filePath);
         // file:// プロトコルでローカルパスを読む（Windows パスはそのままで可）
         this.audioFile.src = filePath.startsWith("file:")
           ? filePath
@@ -145,10 +147,9 @@ class UIController {
   setUiBusy(isBusy) {
     this.jobBusy = isBusy;
     this.runFFmpegButton.disabled = isBusy;
-    this.runFFmpegButton.innerText = isBusy ? "処理中です…" : "スタート";
-    this.filePathElement.disabled = isBusy;
+    this.runFFmpegButton.innerText = isBusy ? "処理中…" : "スタート";
     this.fileSelectButton.disabled = isBusy;
-    this.selectModelElement.disabled = isBusy;
+    this.modelButtons.forEach((btn) => (btn.disabled = isBusy));
   }
 
   /** Map catalog id → IPC payload. Does not mutate audioDuration. */
@@ -169,13 +170,13 @@ class UIController {
   }
 
   #onStart() {
-    if (!this.filePathElement.value) {
+    if (!this.fullFilePath) {
       alert("音声ファイルを選択してください");
       return;
     }
 
     const selectModel = this.selectModelConfig(
-      this.selectModelElement.value,
+      this.#getSelectedModelId(),
       this.audioDuration || 60
     );
     if (!selectModel) {
@@ -186,7 +187,7 @@ class UIController {
     this.setUiBusy(true);
     // fallback timer only until first measured event arrives
     this.progressBar.startProgress(selectModel.estimatedDuration);
-    window.electronAPI.runFFmpeg([this.filePathElement.value, selectModel]);
+    window.electronAPI.runFFmpeg([this.fullFilePath, selectModel]);
   }
 }
 

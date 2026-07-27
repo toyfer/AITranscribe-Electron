@@ -55,8 +55,7 @@ class ProgressBar {
 
     if (payload.type === "complete") {
       this.lastMetrics = payload.metrics || null;
-      const extra = this.#formatMetrics(payload.metrics);
-      this.endProgress(true, extra);
+      this.endProgress(true);
       return;
     }
 
@@ -107,17 +106,6 @@ class ProgressBar {
     return ` · 残り ~${Math.ceil(remain / 60)}分`;
   }
 
-  #formatMetrics(m) {
-    if (!m) return "";
-    const bits = [];
-    if (m.t_total_sec != null) bits.push(`合計 ${Number(m.t_total_sec).toFixed(1)}s`);
-    if (m.rtf_total != null) bits.push(`RTF ${Number(m.rtf_total).toFixed(2)}`);
-    if (m.python && m.python.rtf_infer != null) {
-      bits.push(`推論RTF ${Number(m.python.rtf_infer).toFixed(2)}`);
-    }
-    return bits.length ? bits.join(" / ") : "";
-  }
-
   #tickFallback() {
     if (this.mode !== "fallback") {
       this.#clearTimer();
@@ -142,7 +130,7 @@ class ProgressBar {
     const p = Math.max(0, Math.min(100, percent));
     // Visual fill on inner bar; ARIA on outer #progress (role="progressbar")
     this.progressBar.style.width = p + "%";
-    this.progressBar.innerText = text || `${p}%`;
+    this.progressBar.innerText = "";
     this.progressBar.setAttribute("style", `width:${p}%`);
     this.progress.setAttribute("aria-valuenow", String(Math.round(p)));
 
@@ -155,6 +143,7 @@ class ProgressBar {
       this.progressBar.setAttribute("class", "progress-bar bg-success");
     }
 
+    // Label is outside the bar (in #progress-phase), not inside
     if (this.phaseLabel) {
       this.phaseLabel.textContent = text || "";
       this.phaseLabel.hidden = !text;
@@ -172,9 +161,7 @@ class ProgressBar {
     this.#clearTimer();
     this.mode = "idle";
     const label = completed
-      ? extraText
-        ? `完了しました! (${extraText})`
-        : "完了しました!"
+      ? "文字起こしが完了しました"
       : "もう少しで完了します...";
     this.currentPct = 100;
     this.#paint(100, label, { striped: !completed });
