@@ -70,11 +70,13 @@ jobs:
           Expand-Archive .\llama.zip -DestinationPath .\llama
           Copy-Item -Path .\llama\llama-cli.exe .\src\Whisper\llama-cli.exe
 
-      - name: GGUF model (Qwen3-0.6B Q4_K_M)
+      - name: GGUF model (Qwen3-0.6B Q4_K_M via unsloth mirror)
         # 要約機能を使う人のため。同梱しておく。
+        # 注意: Qwen/Qwen3-0.6B-GGUF 公式リポジトリは Q8_0 のみ (Q4_K_M なし)。
+        #       unsloth のミラー (Q4_K_M 推奨サイズ) を使う。
         run: |
           New-Item -ItemType Directory -Force -Path .\src\Whisper\models\llm
-          Invoke-WebRequest -Uri https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/qwen3-0.6b-q4_k_m.gguf -Outfile .\src\Whisper\models\llm\qwen3-0.6b-q4_k_m.gguf
+          Invoke-WebRequest -Uri https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf -Outfile .\src\Whisper\models\llm\qwen3-0.6b-q4_k_m.gguf
 
       - name: Setup FFmpeg + Embeddable + pinned pip deps
         run: |
