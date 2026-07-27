@@ -16,48 +16,35 @@
             font-family: "BIZ UDGothic", "BIZ UDPGothic", "Cascadia Mono", "Consolas", monospace;
         }
 
-        /* ============================================================
-           全体構成: Bootstrapのcontainer/row/col階層をフル活用
-           ウィンドウサイズ追従は CSS 変数 + aspect-ratio ベースで
-           実現。flex/gridのネストは使わない。
-           ============================================================ */
-
-        /* body 自身はヘッダー・メイン・フッターを縦に積むだけ */
-        body {
+        /* ログカード内: card-body を縦flexにして textarea だけ伸びる */
+        .log-card {
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
         }
-        /* main は残り領域を flex で埋める */
-        .app-main {
+        .log-card .card-body {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+        }
+        .log-card textarea {
             flex: 1 1 auto;
             min-height: 0;
-        }
-        /* ヘッダー・フッターは内容で固定 */
-        .app-header,
-        .app-footer {
-            flex: 0 0 auto;
-        }
-
-        /* ログカードの中身だけ flex で制御
-           (Bootstrapのcol-12 > card > card-body内に閉じる) */
-        .log-card-body {
-            display: flex;
-            flex-direction: column;
-            min-height: 220px;  /* 最小サイズを確保 */
-        }
-        .log-card-body textarea {
-            flex: 1 1 auto;
-            min-height: 120px;
             resize: none;
         }
     </style>
     <title>AI文字起こし</title>
 </head>
 
-<body>
+<!--
+  App shell: Bootstrap 5.3 標準の sticky footer + app パターン
+  - body を縦flexにして header / main / footer を積む
+  - main の中身を d-flex flex-column で縦に並べ、最後のカードを mt-auto + flex-grow-1 で
+    残り領域を埋めて底に押し下げる
+-->
+<body class="d-flex flex-column min-vh-100">
+
     <!-- ヘッダー: タイトル + サポーター起動ボタン -->
-    <header class="app-header border-bottom">
+    <header class="border-bottom">
         <div class="container py-2">
             <div class="row align-items-center g-2">
                 <div class="col">
@@ -70,60 +57,52 @@
         </div>
     </header>
 
-    <!-- メイン: カード3枚 (モデル選択 / 進捗 / ログ) -->
-    <main class="app-main py-3">
-        <div class="container">
-            <div class="row g-3">
-                <!-- モデル選択カード -->
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <h6 class="card-title text-muted mb-2">モデルの選択</h6>
-                            <div class="btn-group w-100" role="group" aria-label="モデル選択">
-                                <input type="radio" class="btn-check" name="model" id="model-small" autocomplete="off" value="small">
-                                <label class="btn btn-outline-primary" for="model-small">速度重視</label>
+    <!-- メイン: カード3枚を縦flexで並べる。ログカードが mt-auto + flex-grow-1 -->
+    <main class="flex-grow-1 overflow-hidden d-flex flex-column">
+        <div class="container py-3 flex-grow-1 d-flex flex-column">
+            <!-- モデル選択カード -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="card-title text-muted mb-2">モデルの選択</h6>
+                    <div class="btn-group w-100" role="group" aria-label="モデル選択">
+                        <input type="radio" class="btn-check" name="model" id="model-small" autocomplete="off" value="small">
+                        <label class="btn btn-outline-primary" for="model-small">速度重視</label>
 
-                                <input type="radio" class="btn-check" name="model" id="model-turbo" autocomplete="off" value="turbo" checked>
-                                <label class="btn btn-outline-primary" for="model-turbo">精度重視（推奨）</label>
-                            </div>
-                        </div>
+                        <input type="radio" class="btn-check" name="model" id="model-turbo" autocomplete="off" value="turbo" checked>
+                        <label class="btn btn-outline-primary" for="model-turbo">精度重視（推奨）</label>
                     </div>
                 </div>
+            </div>
 
-                <!-- 進捗カード (タイトル + フェーズラベル + バー) -->
-                <div class="col-12">
-                    <div class="card progress-card">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center gap-2 mb-2">
-                                <h6 class="card-title text-muted mb-0 text-nowrap">進捗</h6>
-                                <p class="small text-muted mb-0 flex-grow-1" id="progress-phase" hidden></p>
-                            </div>
-                            <div hidden class="progress" role="progressbar" aria-label="progressbar-aria" aria-valuenow="0"
-                                aria-valuemin="0" aria-valuemax="100" id="progress" style="height: 22px;">
-                                <div class="progress-bar bg-success" id="progress-bar"></div>
-                            </div>
-                        </div>
+            <!-- 進捗カード -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <h6 class="card-title text-muted mb-0 text-nowrap">進捗</h6>
+                        <p class="small text-muted mb-0 flex-grow-1" id="progress-phase" hidden></p>
+                    </div>
+                    <div hidden class="progress" role="progressbar" aria-label="progressbar-aria" aria-valuenow="0"
+                        aria-valuemin="0" aria-valuemax="100" id="progress" style="height: 22px;">
+                        <div class="progress-bar bg-success" id="progress-bar"></div>
                     </div>
                 </div>
+            </div>
 
-                <!-- ログカード (タイトル + クリアボタン + textarea) -->
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-body log-card-body">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <h6 class="card-title text-muted mb-0">ログ</h6>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="log-clear-button">クリア</button>
-                            </div>
-                            <textarea readonly class="form-control font-monospace" id="output-textarea"></textarea>
-                        </div>
+            <!-- ログカード: flex-grow-1 + mt-auto で残り領域を埋める -->
+            <div class="card log-card flex-grow-1 mt-auto">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="card-title text-muted mb-0">ログ</h6>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="log-clear-button">クリア</button>
                     </div>
+                    <textarea readonly class="form-control font-monospace" id="output-textarea"></textarea>
                 </div>
             </div>
         </div>
     </main>
 
     <!-- フッター: ファイルパス + ファイル選択 + スタート -->
-    <footer class="app-footer border-top">
+    <footer class="border-top mt-auto">
         <div class="container py-3">
             <div class="row g-2 align-items-center">
                 <div class="col-md-7">
