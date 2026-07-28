@@ -8,7 +8,7 @@ const DEFAULT_CTX_SIZE = 4096;
 const DEFAULT_MAX_TOKENS = 1024;
 const DEFAULT_TEMPERATURE = 0.4;
 const INFERENCE_TIMEOUT_MS = 5 * 60 * 1000;
-// Qwen3 uses <think>...</think> tags for reasoning blocks.
+// Qwen3.x uses <think>...</think> tags for reasoning blocks.
 // See: https://hf.co/unsloth/Qwen3-0.6B-GGUF
 // The non-greedy [\s\S]*? ensures we match the shortest possible block.
 const THINKING_BLOCK_RE = /<think>[\s\S]*?<\/think>/g;
@@ -67,15 +67,13 @@ class SummarizeJob {
     if (ggufPaths.length === 0) {
       this.sendProcessMessage(
         `[${this.ts()}:System]GGUF モデルが見つかりません。\n` +
-          "Whisper/models/llm/ 配下に Qwen3-0.6B GGUF Q4_K_M などを手動配置してください。"
+          "Whisper/models/llm/ 配下に Qwen3.5-0.8B GGUF Q4_K_M などを手動配置してください。"
       );
       return;
     }
-    // Use modelPath from options if provided and valid, otherwise auto-select first
-    const modelPath =
-      options.modelPath && fs.existsSync(options.modelPath)
-        ? options.modelPath
-        : ggufPaths[0];
+    // Auto-select the first GGUF model found under models/llm/.
+    // (Qwen3.5-0.8B is the only model supported in this version.)
+    const modelPath = ggufPaths[0];
 
     let csvText;
     try {
@@ -178,7 +176,7 @@ class SummarizeJob {
         return;
       }
 
-      // Remove thinking blocks and trim (Qwen3 uses <think>...</think>)
+      // Remove thinking blocks and trim (Qwen3.x uses <think>...</think>)
       summaryText = summaryText.replace(THINKING_BLOCK_RE, "").trim();
 
       if (!summaryText) {
