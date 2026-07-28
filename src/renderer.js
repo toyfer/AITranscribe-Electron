@@ -10,10 +10,6 @@
  * the GGUF under Whisper/models/llm/. User no longer picks the model.
  */
 
-/**
- * Single source of truth: UI id <-> local dir <-> HF source <-> fallback multiplier.
- * estimatedDurationMul ~ CPU int8 wall-time / audio length (rough fallback).
- */
 const MODEL_CATALOG = Object.freeze([
   {
     id: "small",
@@ -33,13 +29,6 @@ const MODEL_CATALOG = Object.freeze([
   },
 ]);
 
-/** Summary types (mirrors SummarizeJob). */
-const SUMMARY_TYPES = [
-  { id: "minutes", label: "議事録" },
-  { id: "bullets", label: "箇条書き" },
-  { id: "summary", label: "要約" },
-];
-
 /** Heuristic: messages that pertain to the summarize feature. */
 const SUMMARY_MSG_REGEX = /要約|llama|GGUF|csvPath|docx|タイムアウト|ctx/;
 
@@ -55,7 +44,6 @@ class UIController {
     this.csvSelectButton = document.getElementById("csv-select-button");
     this.csvPathElement = document.getElementById("csv-path");
     this.runSummarizeButton = document.getElementById("run-summarize");
-    this.summaryClearButton = document.getElementById("summary-clear-button");
     this.csvClearButton = document.getElementById("csv-clear-button");
     this.summaryTypeButtons = document.querySelectorAll('input[name="summary-type"]');
     this.logButtons = document.querySelectorAll("button[data-log-tab]");
@@ -73,9 +61,7 @@ class UIController {
     this.progressBar = new ProgressBar();
     this.jobBusy = false;
 
-    /** Full path kept internally; display shows filename only */
     this.fullFilePath = "";
-    /** Full CSV path for summarization. */
     this.fullCsvPath = "";
 
     if (!window.electronAPI) {
@@ -129,8 +115,6 @@ class UIController {
     this.summaryLogElement.value +=
       `[${new Date().toLocaleTimeString("ja-JP")}] ${message}\n`;
     this.summaryLogElement.scrollTop = this.summaryLogElement.scrollHeight;
-    // Auto-switch to the summary log tab so the user actually sees
-    // the error rather than missing the transient toast.
     this.#switchLogTab("summary");
   }
 
@@ -152,7 +136,8 @@ class UIController {
     this.fileSelectButton.addEventListener("click", () => this.#pickAudioFile());
     this.runFFmpegButton.addEventListener("click", () => this.#onStart());
     this.logClearButton.addEventListener("click", () => {
-      this.outputTextareaElement.value = "";
+      // M2: clear the active log pane (transcribe or summary).
+      this.#clearActiveLog();
     });
 
     if (this.csvSelectButton) {
@@ -160,11 +145,6 @@ class UIController {
     }
     if (this.runSummarizeButton) {
       this.runSummarizeButton.addEventListener("click", () => this.#onSummarize());
-    }
-    if (this.summaryClearButton) {
-      this.summaryClearButton.addEventListener("click", () => {
-        if (this.summaryLogElement) this.summaryLogElement.value = "";
-      });
     }
     if (this.csvClearButton) {
       this.csvClearButton.addEventListener("click", () => {
@@ -182,6 +162,16 @@ class UIController {
       console.log(this.audioFile.duration);
       this.audioDuration = this.audioFile.duration;
     });
+  }
+
+  #clearActiveLog() {
+    // Find which log pane is currently visible
+    for (const pane of this.logPanes) {
+      if (!pane.classList.contains("d-none")) {
+        pane.value = "";
+        return;
+      }
+    }
   }
 
   #switchLogTab(target) {
@@ -216,9 +206,6 @@ class UIController {
     window.electronAPI.processMessage((_event, message) => {
       new Notification("Ai文字起こし", { body: message });
 
-      // Mirror summarize-related messages to the summary log so the
-      // user sees the actual error instead of relying on the transient
-      // toast notification.
       if (SUMMARY_MSG_REGEX.test(String(message))) {
         this.#appendSummaryLog(message);
       }
@@ -241,9 +228,6 @@ class UIController {
     if (typeof window.electronAPI.processSummary === "function") {
       window.electronAPI.processSummary((_event, payload) => {
         console.log("[summary progress]", payload);
-        // Only update the progress bar, do NOT write phase labels
-        // (e.g. "推論中 (123 chars)") to the summary log.
-        // The actual inference text is streamed via returnSummary.
       });
     }
   }
@@ -293,7 +277,6 @@ class UIController {
     if (this.csvSelectButton) this.csvSelectButton.disabled = isBusy;
     if (this.csvClearButton) this.csvClearButton.disabled = isBusy;
     for (const btn of this.summaryTypeButtons) btn.disabled = isBusy;
-    // Disable parameter inputs during inference
     if (this.paramCtx) this.paramCtx.disabled = isBusy;
     if (this.paramTokens) this.paramTokens.disabled = isBusy;
     if (this.paramTemp) this.paramTemp.disabled = isBusy;
@@ -357,7 +340,6 @@ class UIController {
     }
     if (!outputPath) return;
 
-    // Read parameters from UI (model is fixed to Qwen3.5-0.8B)
     const options = this.#getSummarizeOptions();
 
     this.setSummarizeUiBusy(true);
