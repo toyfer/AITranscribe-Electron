@@ -15,6 +15,10 @@
         .font-monospace {
             font-family: "BIZ UDGothic", "BIZ UDPGothic", "Cascadia Mono", "Consolas", monospace;
         }
+        .section-title {
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
     </style>
     <title>AI文字起こし</title>
 </head>
@@ -25,11 +29,10 @@
     └─ header (固定)
     └─ main(flex-grow-1.overflow-hidden.d-flex.flex-column)
          └─ .container(flex-grow-1.d-flex.flex-column)
-              ├─ .card モデル選択 (固定)
+              ├─ .card 文字起こし (固定)
+              ├─ .card 要約 (固定)
               ├─ .card 進捗 (固定)
-              ├─ .card 要約 (CSV 選択 + 種類選択 + 実行) (固定)
               └─ .card ログ (flex:1 1 0, min-height:0, タブ切替)
-    └─ footer (固定)
 -->
 <body class="d-flex flex-column min-vh-100">
 
@@ -49,19 +52,81 @@
     <main class="flex-grow-1 overflow-hidden d-flex flex-column">
         <div class="container py-3 flex-grow-1 d-flex flex-column">
 
+            <!-- 文字起こしカード: モデル選択 + ファイル選択 + 実行 -->
             <div class="card mb-3">
                 <div class="card-body">
-                    <h6 class="card-title text-muted mb-2">モデルの選択</h6>
-                    <div class="btn-group w-100" role="group" aria-label="モデル選択">
-                        <input type="radio" class="btn-check" name="model" id="model-small" autocomplete="off" value="small">
-                        <label class="btn btn-outline-primary" for="model-small">速度重視</label>
+                    <h5 class="section-title mb-3">🎵 文字起こし</h5>
 
-                        <input type="radio" class="btn-check" name="model" id="model-turbo" autocomplete="off" value="turbo" checked>
-                        <label class="btn btn-outline-primary" for="model-turbo">精度重視（推奨）</label>
+                    <div class="mb-3">
+                        <h6 class="card-title text-muted mb-2">モデルの選択</h6>
+                        <div class="btn-group w-100" role="group" aria-label="モデル選択">
+                            <input type="radio" class="btn-check" name="model" id="model-small" autocomplete="off" value="small">
+                            <label class="btn btn-outline-primary" for="model-small">速度重視</label>
+
+                            <input type="radio" class="btn-check" name="model" id="model-turbo" autocomplete="off" value="turbo" checked>
+                            <label class="btn btn-outline-primary" for="model-turbo">精度重視（推奨）</label>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-7">
+                            <input readonly type="text" class="form-control" id="file-path"
+                                aria-label="選択中の音声ファイル" placeholder="音声ファイルを選択してください">
+                        </div>
+                        <div class="col-md-2 d-grid">
+                            <button type="button" class="btn btn-outline-primary" id="file-select-button">ファイル選択</button>
+                        </div>
+                        <div class="col-md-3 d-grid">
+                            <button type="button" class="btn btn-success" id="run-ffmpeg">
+                                <span aria-hidden="true">▶</span> スタート
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
+            <!-- 要約カード: CSV 選択 + タイプ + 実行 (試験実装) -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="section-title mb-3">📝 要約（試験実装）</h5>
+
+                    <div class="row g-2 align-items-center mb-3">
+                        <div class="col-md-7">
+                            <div class="input-group input-group-sm">
+                                <input readonly type="text" class="form-control" id="csv-path"
+                                    placeholder="CSV ファイルを選択してください">
+                                <button type="button" class="btn btn-outline-secondary" id="csv-clear-button"
+                                    title="クリア">×</button>
+                                <button type="button" class="btn btn-outline-primary" id="csv-select-button">CSV 選択</button>
+                            </div>
+                        </div>
+                        <div class="col-md-5 d-grid">
+                            <button type="button" class="btn btn-success" id="run-summarize">
+                                <span aria-hidden="true">▶</span> 要約を実行
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h6 class="card-title text-muted mb-2">要約種別</h6>
+                        <div class="btn-group btn-group-sm w-100" role="group" aria-label="要約種別">
+                            <input type="radio" class="btn-check" name="summary-type" id="type-bullets"
+                                autocomplete="off" value="bullets" checked>
+                            <label class="btn btn-outline-primary" for="type-bullets">箇条書き</label>
+
+                            <input type="radio" class="btn-check" name="summary-type" id="type-minutes"
+                                autocomplete="off" value="minutes">
+                            <label class="btn btn-outline-primary" for="type-minutes">議事録</label>
+
+                            <input type="radio" class="btn-check" name="summary-type" id="type-summary"
+                                autocomplete="off" value="summary">
+                            <label class="btn btn-outline-primary" for="type-summary">要約</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 進捗カード (両機能共有) -->
             <div class="card progress-card mb-3">
                 <div class="card-body">
                     <div class="d-flex align-items-center gap-2 mb-2">
@@ -75,50 +140,15 @@
                 </div>
             </div>
 
-            <!-- 要約カード: CSV 選択 + タイプ + 実行 (試験実装) -->
-            <div class="card mb-3">
-                <div class="card-body py-2">
-                    <div class="row g-2 align-items-center">
-                        <div class="col-md-7">
-                            <div class="input-group input-group-sm">
-                                <input readonly type="text" class="form-control" id="csv-path"
-                                    placeholder="CSV ファイルを選択してください">
-                                <button type="button" class="btn btn-outline-secondary" id="csv-clear-button"
-                                    title="クリア">×</button>
-                                <button type="button" class="btn btn-outline-primary" id="csv-select-button">CSV 選択</button>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="btn-group btn-group-sm w-100" role="group" aria-label="要約種別">
-                                <input type="radio" class="btn-check" name="summary-type" id="type-bullets"
-                                    autocomplete="off" value="bullets" checked>
-                                <label class="btn btn-outline-primary" for="type-bullets">箇条書き</label>
-
-                                <input type="radio" class="btn-check" name="summary-type" id="type-minutes"
-                                    autocomplete="off" value="minutes">
-                                <label class="btn btn-outline-primary" for="type-minutes">議事録</label>
-
-                                <input type="radio" class="btn-check" name="summary-type" id="type-summary"
-                                    autocomplete="off" value="summary">
-                                <label class="btn btn-outline-primary" for="type-summary">要約</label>
-                            </div>
-                        </div>
-                        <div class="col-md-2 d-grid">
-                            <button type="button" class="btn btn-success btn-sm" id="run-summarize">要約を実行</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- ログカード: タブ切替で「文字起こし / 要約」を切替 -->
             <div class="card flex-grow-1 d-flex flex-column" style="min-height: 0;">
                 <div class="card-body flex-grow-1 d-flex flex-column p-0" style="min-height: 0;">
                     <div class="d-flex justify-content-between align-items-center p-3 pb-2">
                         <div class="btn-group btn-group-sm" role="group" aria-label="ログ切替">
                             <button type="button" class="btn btn-primary" data-log-tab="transcribe"
-                                id="log-tab-transcribe">文字起こしログ</button>
+                                id="log-tab-transcribe">🎵 文字起こしログ</button>
                             <button type="button" class="btn btn-outline-primary" data-log-tab="summary"
-                                id="log-tab-summary">要約ログ</button>
+                                id="log-tab-summary">📝 要約ログ</button>
                         </div>
                         <button type="button" class="btn btn-outline-secondary btn-sm" id="log-clear-button"
                             data-clear-target="active">クリア</button>
@@ -138,23 +168,6 @@
 
         </div>
     </main>
-
-    <footer class="border-top">
-        <div class="container py-3">
-            <div class="row g-2 align-items-center">
-                <div class="col-md-7">
-                    <input readonly type="text" class="form-control" id="file-path"
-                        aria-label="選択中の音声ファイル" placeholder="ファイルを選択してください">
-                </div>
-                <div class="col-md-2 d-grid">
-                    <button type="button" class="btn btn-outline-primary" id="file-select-button">ファイル選択</button>
-                </div>
-                <div class="col-md-3 d-grid">
-                    <button type="button" class="btn btn-success" id="run-ffmpeg">スタート</button>
-                </div>
-            </div>
-        </div>
-    </footer>
 
     <script src="./progressbar.js"></script>
     <script src="./renderer.js"></script>
