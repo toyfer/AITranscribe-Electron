@@ -32,13 +32,15 @@ jobs:
           echo "BUILD_DATE=$date" >> $env:GITHUB_ENV
 
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js (24 LTS)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "24.18.0"
           cache: npm
+          # v5 の自動キャッシュを明示的に無効化（packageManager フィールドは未設定）
+          package-manager-cache: false
 
       - name: Install Node.js dependencies (locked)
         run: npm ci
@@ -74,7 +76,7 @@ jobs:
           GIT_SHORT: ${{ github.sha }}
 
       - name: Archive workflow artifact (no zip, no release)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: AITranscribe-Electron_Partial
           retention-days: 30
