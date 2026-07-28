@@ -13,6 +13,7 @@ const DIALOG_OPEN_FILE = "dialog:openFile";
 const DIALOG_OPEN_CSV = "dialog:openCsv";
 const DIALOG_SAVE_DOCX = "dialog:saveDocx";
 const LIST_LLMS = "llm:listModels";
+const OPEN_SUMMARIZE_WINDOW = "window:openSummarize";
 const EXECUTE_RUN_FFMPEG = "execute:runFFmpeg";
 const EXECUTE_RUN_WHISPER = "execute:runWhisper";
 const EXECUTE_RUN_SUMMARIZE = "execute:runSummarize";
@@ -30,6 +31,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
   saveDocx: (defaultName) => ipcRenderer.invoke(DIALOG_SAVE_DOCX, defaultName),
   /** List available GGUF models. Returns [{ name, path, sizeMB }]. */
   listLlms: () => ipcRenderer.invoke(LIST_LLMS),
+  /**
+   * Request main to open the dedicated Summarize-Suppoter BrowserWindow.
+   * Returns true if a new window was created, false if an existing one
+   * was focused. The transcribe window calls this from its header link.
+   */
+  openSummarizeWindow: () => ipcRenderer.invoke(OPEN_SUMMARIZE_WINDOW),
   runFFmpeg: (args) => ipcRenderer.send(EXECUTE_RUN_FFMPEG, args),
   // main 内で FFmpeg 完了後に Whisper へ進むため、renderer からは未使用
   runWhisper: (args) => ipcRenderer.send(EXECUTE_RUN_WHISPER, args),
