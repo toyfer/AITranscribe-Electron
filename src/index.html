@@ -27,8 +27,9 @@
             font-size: 13px;
             line-height: 1.5;
         }
-        /* パラメータ入力: コンパクトな幅 */
+        /* パラメータ入力: コンパクトかつ下限付きでレイアウト崩れ防止 */
         .param-input {
+            min-width: 80px;
             max-width: 120px;
         }
     </style>
@@ -78,10 +79,10 @@
                                         aria-label="選択中の音声ファイル" placeholder="音声ファイルを選択してください">
                                 </div>
                                 <div class="col-md-2 d-grid">
-                                    <button type="button" class="btn btn-outline-primary" id="file-select-button">ファイル選択</button>
+                                    <button type="button" class="btn btn-outline-primary" id="file-select-button" aria-label="音声ファイルを選択">ファイル選択</button>
                                 </div>
                                 <div class="col-md-3 d-grid">
-                                    <button type="button" class="btn btn-success" id="run-ffmpeg">
+                                    <button type="button" class="btn btn-success" id="run-ffmpeg" aria-label="文字起こしを開始">
                                         <span aria-hidden="true">▶</span> スタート
                                     </button>
                                 </div>
@@ -156,13 +157,13 @@
                                 aria-label="選択中のCSVファイル" placeholder="CSVファイルを選択してください">
                         </div>
                         <div class="col-md-2 d-grid">
-                            <button type="button" class="btn btn-outline-primary" id="csv-select-button">ファイル選択</button>
+                            <button type="button" class="btn btn-outline-primary" id="csv-select-button" aria-label="CSVファイルを選択">ファイル選択</button>
                         </div>
                         <div class="col-md-1 d-grid">
-                            <button type="button" class="btn btn-outline-secondary" id="csv-clear-button" title="クリア">×</button>
+                            <button type="button" class="btn btn-outline-secondary" id="csv-clear-button" title="クリア" aria-label="CSV選択を解除">×</button>
                         </div>
                         <div class="col-md-2 d-grid">
-                            <button type="button" class="btn btn-success" id="run-summarize">
+                            <button type="button" class="btn btn-success" id="run-summarize" aria-label="要約を開始">
                                 <span aria-hidden="true">▶</span> 要約を実行
                             </button>
                         </div>
@@ -195,17 +196,17 @@
                                 id="log-tab-summary">要約ログ</button>
                         </div>
                         <button type="button" class="btn btn-outline-secondary btn-sm" id="log-clear-button"
-                            data-clear-target="active">クリア</button>
+                            data-clear-target="active" aria-label="現在のログをクリア">クリア</button>
                     </div>
                     <div class="flex-grow-1 position-relative" style="min-height: 0;">
                         <textarea readonly class="form-control font-monospace position-absolute top-0 start-0 end-0 bottom-0"
                             id="output-textarea"
                             style="min-height: 0; resize: none; border-top-left-radius: 0; border-top-right-radius: 0;"
-                            data-log-pane="transcribe"></textarea>
+                            data-log-pane="transcribe" aria-label="文字起こしログ出力"></textarea>
                         <textarea readonly class="form-control font-monospace position-absolute top-0 start-0 end-0 bottom-0 d-none"
                             id="summary-log"
                             style="min-height: 0; resize: none; border-top-left-radius: 0; border-top-right-radius: 0;"
-                            data-log-pane="summary"></textarea>
+                            data-log-pane="summary" aria-label="要約ログ出力"></textarea>
                     </div>
                 </div>
             </div>
