@@ -5,8 +5,10 @@
  * Local CTranslate2 dirs under src/Whisper/models/<dir>/ — see docs/models.md.
  * Progress: measured events (process:Progress); mul is cold-start fallback only.
  *
- * Note: The summarize feature has been moved to a separate window
+ * Note: The summarize feature has been moved to a separate BrowserWindow
  * (Summarize-Suppoter). This file only handles the transcribe flow.
+ * The header "要約サポーターを起動" button calls openSummarizeWindow()
+ * which asks main to open (or focus) the dedicated window.
  */
 
 const MODEL_CATALOG = Object.freeze([
@@ -36,6 +38,7 @@ class UIController {
     this.filePathElement = document.getElementById("file-path");
     this.runFFmpegButton = document.getElementById("run-ffmpeg");
     this.logClearButton = document.getElementById("log-clear-button");
+    this.openSummarizeButton = document.getElementById("open-summarize-button");
 
     this.modelButtons = document.querySelectorAll('input[name="model"]');
 
@@ -95,6 +98,10 @@ class UIController {
       this.outputTextareaElement.value = "";
     });
 
+    if (this.openSummarizeButton) {
+      this.openSummarizeButton.addEventListener("click", () => this.#openSummarize());
+    }
+
     this.audioFile.addEventListener("loadedmetadata", () => {
       this.audioDuration = this.audioFile.duration;
     });
@@ -138,6 +145,19 @@ class UIController {
     } catch (err) {
       console.error(err);
       alert(`ファイル選択に失敗しました: ${err && err.message ? err.message : err}`);
+    }
+  }
+
+  async #openSummarize() {
+    try {
+      if (typeof window.electronAPI.openSummarizeWindow !== "function") {
+        alert("要約サポーターを開けません (IPC ハンドラが未登録)");
+        return;
+      }
+      await window.electronAPI.openSummarizeWindow();
+    } catch (err) {
+      console.error(err);
+      alert(`要約サポーターの起動に失敗しました: ${err && err.message ? err.message : err}`);
     }
   }
 
