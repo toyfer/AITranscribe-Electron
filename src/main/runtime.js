@@ -67,7 +67,7 @@ class RuntimeLayout {
     }
     if (ggufPaths.length === 0) {
       llamaMissing.push(
-        "Whisper/models/llm/*.gguf (Qwen3-0.6B GGUF Q4_K_M 推奨・手動配置・要約機能を使う場合に必要)"
+        "Whisper/models/llm/*.gguf (Qwen3.5-0.8B GGUF Q4_K_M 推奨・手動配置・要約機能を使う場合に必要)"
       );
     }
     return { ffmpegPath, pythonPath, llamaCliPath, ggufPaths, missing, llamaMissing };
@@ -75,7 +75,8 @@ class RuntimeLayout {
 
   /**
    * List all GGUF models under Whisper/models/llm/ with metadata.
-   * Used by the model selector dropdown in the renderer.
+   * (Currently only Qwen3.5-0.8B is supported; the list is kept for
+   * future expansion and diagnostic purposes.)
    * @returns {Array<{ name: string, path: string, sizeMB: number }>}
    */
   listGgufModels() {
