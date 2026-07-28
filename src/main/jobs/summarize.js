@@ -4,6 +4,16 @@ const path = require("path");
 
 const AIT_PREFIX = "__AIT__";
 
+/** Default ctx_size for CPU inference. 32768 is too large for
+ *  0.6B CPU inference (KV cache needs ~2GB RAM, init takes minutes).
+ *  4096 is a practical upper limit for CPU-only inference. */
+const DEFAULT_CTX_SIZE = 4096;
+
+/** Timeout in ms. If llama-cli doesn't produce any stdout for this
+ *  duration, the child is killed to prevent the UI from appearing
+ *  stuck on "推論中 (N chars)". */
+const INFERENCE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
 /**
  * One summarize run: read CSV -> call llama-cli -> parse token output ->
  * write .docx with the docx npm package.
@@ -93,22 +103,13 @@ class SummarizeJob {
 
     const prompt = this.buildPrompt(csvText, type);
     const maxTokens = options.maxTokens || 1024;
-    const ctxSize = options.ctxSize || 32768;
+    // 32768 was too large for CPU 0.6B inference (KV cache ~2GB, init
+    // takes minutes, may appear to hang). DEFAULT_CTX_SIZE = 4096.
+    const ctxSize = options.ctxSize || DEFAULT_CTX_SIZE;
     const temperature = options.temperature || 0.4;
 
     this.emit({ type: "phase", phase: "load", label: "モデル読込中", pct: 0, mode: "indeterminate" });
 
-    // llama-cli args:
-    //   -m  model.gguf
-    //   -p  prompt
-    //   -n  max tokens to generate
-    //   -c  context size
-    //   --temp temperature
-    //   --no-display-prompt
-    //   --log-disable
-    //   --log-format json
-    // Renamed from 'args' to 'llamaArgs' to avoid shadowing the
-    // function parameter 'args' (CSV path / output path / type).
     const llamaArgs = [
       "-m", modelPath,
       "-p", prompt,
@@ -123,6 +124,27 @@ class SummarizeJob {
     const child = spawn(llamaCliPath, llamaArgs, { windowsHide: true });
     this.child = child;
     const stdoutBuf = { value: "" };
+    let timedOut = false;
+
+    // Timeout guard: kill the child if llama-cli produces no stdout
+    // for INFERENCE_TIMEOUT_MS. Prevents the UI from appearing
+    // stuck on "推論中 (N chars)" when the model is still loading
+    // or has hung.
+    const timeoutHandle = setTimeout(() => {
+      if (!child.killed && child.exitCode === null) {
+        timedOut = true;
+        child.kill();
+        this.sendProcessMessage(
+          `[${this.ts()}:System]タイムアウト: ${INFERENCE_TIMEOUT_MS / 1000}秒以内に応答がありませんでした。` +
+            " ctx サイズが小さすぎるか、モデルが大きすぎる可能性があります。"
+        );
+        this.sendLog(
+          `[${this.ts()}:System]タイムアウト: llama-cli を強制終了します。\n` +
+            "ヒント: 短いCSVで試すか、ctx 4096 を見直してください。\n"
+        );
+        this.emit({ type: "complete", pct: 0, ok: false });
+      }
+    }, INFERENCE_TIMEOUT_MS);
 
     this.emit({ type: "phase", phase: "infer", label: "推論中", pct: 5, mode: "measured" });
 
@@ -145,6 +167,7 @@ class SummarizeJob {
     });
 
     child.on("close", async (code) => {
+      clearTimeout(timeoutHandle);
       if (stdoutBuf.value.length) {
         this.handleStdoutLine({ value: stdoutBuf.value, flush: true });
         stdoutBuf.value = "";
@@ -152,6 +175,10 @@ class SummarizeJob {
       const summaryText = (getState(this).accumulated || "").trim();
       const tTotal = (Date.now() - t0) / 1000;
 
+      if (timedOut) {
+        // Already notified in the timeout handler
+        return;
+      }
       if (code !== 0) {
         this.sendProcessMessage(
           `[${this.ts()}:llama]エラー code=${code}`
@@ -243,8 +270,17 @@ class SummarizeJob {
 
   handleStdoutLine(buf) {
     const state = getState(this);
-    state.accumulated = (state.accumulated || "") + buf.value;
+    const chunk = buf.value;
+    state.accumulated = (state.accumulated || "") + chunk;
     buf.value = "";
+
+    // Stream inference text chunks to the summary log in real-time.
+    // Without this, the user only sees "推論中 (N chars)" and the
+    // final result — no visibility into what llama-cli is generating.
+    if (chunk) {
+      this.sendLog(chunk);
+    }
+
     const len = (state.accumulated || "").length;
     this.emit({ type: "phase", phase: "infer", label: `推論中 (${len} chars)`, pct: 0, mode: "indeterminate" });
   }
