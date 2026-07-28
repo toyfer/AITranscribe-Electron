@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, Menu, session } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { CHANNELS } = require("./shared/channels");
@@ -34,6 +34,16 @@ function createWindow() {
   });
   mainWindow.loadFile(path.join(__dirname, "index.html"));
 }
+
+// Notification API のパーミッションを明示的に許可 (B1 対策)
+// file:// プロトコルでは既定で許可される場合もあるが、
+// エアギャップ環境で通知が届かない事態を防ぐため明示的に設定する
+app.whenReady().then(() => {
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (permission === "notifications") return callback(true);
+    callback(false);
+  });
+});
 
 function sendProcessMessage(message) {
   if (mainWindow && !mainWindow.isDestroyed()) {

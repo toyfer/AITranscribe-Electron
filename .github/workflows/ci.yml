@@ -1,0 +1,77 @@
+name: CI — Syntax check + lint
+
+# PR #54 再発防止: renderer.js の 97% 消失事故を受けて、
+# すべての PR で JS 構文チェックを必須化。
+# node --check は構文エラーを検出するが、論理バグは検出しない。
+# それでも「class ブロックごと消失」のような壊滅的リグレッションは防げる。
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24.18.0"
+          package-manager-cache: false
+
+      - name: Syntax check all JS files in src/
+        run: |
+          set -euo pipefail
+          FAIL=0
+          for f in $(find src -name "*.js" -not -path "*/node_modules/*" -not -path "*/js/*"); do
+            echo "Checking: $f"
+            if ! node --check "$f"; then
+              echo "::error file=$f::Syntax error in $f"
+              FAIL=1
+            fi
+          done
+          if [ "$FAIL" -ne 0 ]; then
+            echo "::error::One or more JS files have syntax errors"
+            exit 1
+          fi
+          echo "All JS files passed syntax check."
+
+      - name: Check for suspiciously small JS files
+        run: |
+          set -euo pipefail
+          # Flag any JS file in src/ that is under 50 bytes (likely truncated/empty)
+          for f in $(find src -name "*.js" -not -path "*/node_modules/*" -not -path "*/js/*" -not -name "theme-init.js"); do
+            SIZE=$(wc -c < "$f")
+            if [ "$SIZE" -lt 50 ]; then
+              echo "::warning file=$f::$f is only $SIZE bytes — verify this is intentional"
+            fi
+          done
+
+      - name: Verify renderer.js is not empty or truncated
+        run: |
+          if [ ! -f src/renderer.js ]; then
+            echo "::error::src/renderer.js does not exist"
+            exit 1
+          fi
+          LINES=$(wc -l < src/renderer.js)
+          if [ "$LINES" -lt 50 ]; then
+            echo "::error file=src/renderer.js::renderer.js has only $LINES lines — expected 200+. Possible truncation."
+            exit 1
+          fi
+          if ! grep -q "class UIController" src/renderer.js; then
+            echo "::error file=src/renderer.js::renderer.js is missing 'class UIController' — possible regression"
+            exit 1
+          fi
+          if ! grep -q "new UIController" src/renderer.js; then
+            echo "::error file=src/renderer.js::renderer.js is missing 'new UIController()' — class never instantiated"
+            exit 1
+          fi
+          echo "renderer.js sanity checks passed ($LINES lines, class UIController found, instantiation found)."
