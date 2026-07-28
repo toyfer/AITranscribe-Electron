@@ -279,13 +279,16 @@ class SummarizeJob {
 
   /**
    * Build and write a .docx file using the `docx` npm package.
-   * Dynamic import to avoid loading the lib when not used.
+   * Dynamic import() is used because docx 9.x is an ESM-only package
+   * ("type": "module" in its package.json). Using require() for an
+   * ESM package in a CommonJS context (Electron main process) causes
+   * Node.js to throw a SyntaxError during module parsing.
    */
   async #writeDocx({ outputPath, summaryText, type, csvPath }) {
-    // Lazy require — only loaded when summarize is actually used.
+    // Dynamic import — only loaded when summarize is actually used.
     let docx;
     try {
-      docx = require("docx");
+      docx = await import("docx");
     } catch (err) {
       throw new Error(
         "`docx` パッケージが見つかりません。`npm install docx` を実行してください。 (" +
