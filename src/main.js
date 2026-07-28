@@ -80,7 +80,7 @@ const transcribeJob = new TranscribeJob({
 
 const summarizeJob = new SummarizeJob({
   runtime,
-  sendProcessMessage,
+  sendProcessMessage: sendProcessMessage,
   sendLog: sendSummaryLog,
   sendProgress: sendSummaryProgress,
 });
@@ -189,7 +189,8 @@ async function handleDocxSave(_event, defaultName) {
 /**
  * List all GGUF models under Whisper/models/llm/.
  * Returns [{ name, path, sizeMB }] for the model selector dropdown.
+ * @param {_event} _event - IPC event object (unused but required by ipcMain.handle signature)
  */
-function handleListLlms() {
+function handleListLlms(_event) {
   return runtime.listGgufModels();
 }
