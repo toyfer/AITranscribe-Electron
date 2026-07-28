@@ -18,7 +18,7 @@ const CHANNELS = Object.freeze({
   /** Open save-as dialog for .docx output. */
   DIALOG_SAVE_DOCX: "dialog:saveDocx",
   /** List available GGUF models under Whisper/models/llm/. */
-  LIST_LLMS: "dialog:listLlms",
+  LIST_LLMS: "llm:listModels",
 
   // renderer → main (send / on)
   EXECUTE_RUN_FFMPEG: "execute:runFFmpeg",
