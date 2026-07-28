@@ -87,6 +87,8 @@ class RuntimeLayout {
       const fullPath = path.join(ggufDir, name);
       try {
         const stat = fs.statSync(fullPath);
+        // Skip directories or symlinks that happen to have .gguf extension
+        if (!stat.isFile()) continue;
         models.push({
           name,
           path: fullPath,
