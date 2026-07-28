@@ -1,38 +1,73 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, session } = require("electron");
 const path = require("path");
-const fs = require("fs");
 const { CHANNELS } = require("./shared/channels");
 const { RuntimeLayout } = require("./main/runtime");
 const { TranscribeJob } = require("./main/jobs/transcribe");
 const { SummarizeJob } = require("./main/jobs/summarize");
 const { getNow } = require("./main/utils/time");
+const { WindowManager } = require("./main/window-manager");
 
 // エアギャップ配布想定: FFmpeg / Python Embeddable / Faster-Whisper モデルは
 // リポジトリに含めず、実行時に src/Whisper 配下に配置する（README 参照）
 // llama-cli / GGUF モデルも同様（手動配置・要約機能を使う場合のみ必要）
 
-let mainWindow;
-
 const runtime = new RuntimeLayout(__dirname);
+const windows = new WindowManager();
 
-function createWindow() {
-  mainWindow = new BrowserWindow({
-    // ワイドサイズ: ログ・パラメータが窮屈にならない幅を確保
-    // 文字起こし / 要約 / パラメータ / 進捗 / ログを1画面で表示
-    width: 1280,
-    height: 800,
-    minWidth: 960,
-    minHeight: 640,
-    resizable: true,
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      // sandbox: true は維持。preload は electron のみ require すること（./shared 禁止）
-      sandbox: true,
+const PRELOAD_PATH = path.join(__dirname, "preload.js");
+
+// Build the per-window send helpers. Job classes only know about these
+// functions, not about the WindowManager directly. The helpers route
+// to the correct webContents (transcribe vs summarize) and never cross.
+const sendTranscribeMessage = (m) => {
+  windows.sendTranscribe(CHANNELS.PROCESS_MESSAGE, m);
+  windows.setTranscribeProgressBar(-1);
+};
+const sendTranscribeCommand = (m) => {
+  windows.sendTranscribeCommand(m);
+};
+const sendTranscribeProgress = (payload) => {
+  windows.sendTranscribe(CHANNELS.PROCESS_PROGRESS, payload);
+  if (payload && payload.pct != null && typeof payload.pct === "number") {
+    windows.setTranscribeProgressBar(payload.pct / 100);
+  }
+};
+const sendSummarizeMessage = (m) => {
+  windows.sendSummarize(CHANNELS.PROCESS_MESSAGE, m);
+};
+const sendSummarizeLog = (m) => {
+  windows.sendSummarizeLog(m);
+};
+const sendSummarizeProgress = (payload) => {
+  windows.sendSummarize(CHANNELS.PROCESS_SUMMARY, payload);
+};
+
+const transcribeJob = new TranscribeJob({
+  runtime,
+  sendProcessMessage: sendTranscribeMessage,
+  sendCommandOutput: sendTranscribeCommand,
+  sendProgress: sendTranscribeProgress,
+});
+
+const summarizeJob = new SummarizeJob({
+  runtime,
+  sendProcessMessage: sendSummarizeMessage,
+  sendLog: sendSummarizeLog,
+  sendProgress: sendSummarizeProgress,
+});
+
+function createTranscribeWindow() {
+  return windows.register(
+    "transcribe",
+    {
+      width: 1280,
+      height: 800,
+      minWidth: 960,
+      minHeight: 640,
+      preload: PRELOAD_PATH,
     },
-  });
-  mainWindow.loadFile(path.join(__dirname, "index.html"));
+    path.join(__dirname, "index.html")
+  );
 }
 
 // Notification API のパーミッションを明示的に許可 (B1 対策)
@@ -45,88 +80,55 @@ app.whenReady().then(() => {
   });
 });
 
-function sendProcessMessage(message) {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(CHANNELS.PROCESS_MESSAGE, message);
-    // Clear taskbar progress on any job completion (success or failure)
-    mainWindow.setProgressBar(-1);
-  }
-}
-
-function sendCommandOutput(message) {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(CHANNELS.RETURN_COMMAND, message);
-  }
-}
-
-function sendProgress(payload) {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(CHANNELS.PROCESS_PROGRESS, payload);
-    // Taskbar progress bar (0.0–1.0, -1 to clear)
-    if (payload.pct != null && typeof payload.pct === "number") {
-      mainWindow.setProgressBar(Math.max(0, Math.min(1, payload.pct / 100)));
-    }
-  }
-}
-
-function sendSummaryLog(message) {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(CHANNELS.RETURN_SUMMARY, message);
-  }
-}
-
-function sendSummaryProgress(payload) {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(CHANNELS.PROCESS_SUMMARY, payload);
-  }
-}
-
-const transcribeJob = new TranscribeJob({
-  runtime,
-  sendProcessMessage,
-  sendCommandOutput,
-  sendProgress,
-});
-
-const summarizeJob = new SummarizeJob({
-  runtime,
-  sendProcessMessage: sendProcessMessage,
-  sendLog: sendSummaryLog,
-  sendProgress: sendSummaryProgress,
-});
-
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+
+  // ─── dialog:* — route via event.sender so the parent window matches ───
   ipcMain.handle(CHANNELS.DIALOG_OPEN_FILE, handleFileOpen);
   ipcMain.handle(CHANNELS.DIALOG_OPEN_CSV, handleCsvOpen);
   ipcMain.handle(CHANNELS.DIALOG_SAVE_DOCX, handleDocxSave);
   ipcMain.handle(CHANNELS.LIST_LLMS, handleListLlms);
+
+  // ─── Open summarize window — called from the transcribe window ───
+  ipcMain.handle(CHANNELS.OPEN_SUMMARIZE_WINDOW, () => {
+    return windows.openSummarizeWindow(PRELOAD_PATH) ? true : false;
+  });
+
+  // ─── Job dispatch ───
+  // The job class uses `event.sender` to know which webContents initiated
+  // the request. The WindowManager routes the resulting sends back to
+  // that same webContents, so transcribe events only reach the transcribe
+  // window and summarize events only reach the summarize window.
   ipcMain.on(CHANNELS.EXECUTE_RUN_FFMPEG, (event, args) => {
     transcribeJob.start(event, args);
   });
-  // runWhisper は FFmpeg 完了後に TranscribeJob 内から呼ぶ（preload の runWhisper は未使用）
+  // runWhisper is unused on the renderer side; main runs Whisper after FFmpeg.
   ipcMain.on(CHANNELS.EXECUTE_RUN_SUMMARIZE, (event, args) => {
     summarizeJob.start(event, args);
   });
-  createWindow();
 
-  mainWindow.webContents.once("did-finish-load", () => {
+  // Create the initial transcribe window.
+  const tw = createTranscribeWindow();
+
+  tw.webContents.once("did-finish-load", () => {
     const { missing, llamaMissing } = runtime.checkRuntimeLayout();
-    sendProcessMessage(`[${getNow()}:System]システムを起動しました`);
+    sendTranscribeMessage(`[${getNow()}:System]システムを起動しました`);
     if (missing.length > 0) {
-      sendCommandOutput(
+      sendTranscribeCommand(
         `[${getNow()}:System]エアギャップ用ランタイム未配置:\n- ${missing.join("\n- ")}\nREADME の配置手順を確認してください。`
       );
     }
     if (llamaMissing.length > 0) {
-      sendProcessMessage(
+      // Broadcast to BOTH windows because the user might already have
+      // the summarize window open.
+      windows.broadcastProcessMessage(
         `[${getNow()}:System]要約機能を使うには追加配置が必要:\n- ${llamaMissing.join("\n- ")}`
       );
     }
   });
 
   app.on("activate", function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) createTranscribeWindow();
   });
 });
 
@@ -134,8 +136,10 @@ app.on("window-all-closed", function () {
   if (process.platform !== "darwin") app.quit();
 });
 
-async function handleFileOpen() {
-  return handleAnyFileOpen({
+// ─── Dialog handlers — use event.sender as the parent window ───
+
+async function handleFileOpen(event) {
+  return handleAnyFileOpen(event, {
     title: "音声ファイルを選択",
     filters: [
       {
@@ -147,8 +151,8 @@ async function handleFileOpen() {
   });
 }
 
-async function handleCsvOpen() {
-  return handleAnyFileOpen({
+async function handleCsvOpen(event) {
+  return handleAnyFileOpen(event, {
     title: "CSVファイルを選択",
     filters: [
       { name: "CSV (Whisper output)", extensions: ["csv"] },
@@ -157,9 +161,8 @@ async function handleCsvOpen() {
   });
 }
 
-async function handleAnyFileOpen(opts) {
-  const browserWindow =
-    mainWindow && !mainWindow.isDestroyed() ? mainWindow : BrowserWindow.getFocusedWindow();
+async function handleAnyFileOpen(event, opts) {
+  const browserWindow = windows.resolveFromEvent(event);
   const dialogOpts = {
     title: opts.title,
     properties: ["openFile"],
@@ -174,9 +177,8 @@ async function handleAnyFileOpen(opts) {
   return null;
 }
 
-async function handleDocxSave(_event, defaultName) {
-  const browserWindow =
-    mainWindow && !mainWindow.isDestroyed() ? mainWindow : BrowserWindow.getFocusedWindow();
+async function handleDocxSave(event, defaultName) {
+  const browserWindow = windows.resolveFromEvent(event);
   const base = (defaultName && String(defaultName).trim()) || "summary.docx";
   const safe = base.toLowerCase().endsWith(".docx") ? base : `${base}.docx`;
   const dialogOpts = {
