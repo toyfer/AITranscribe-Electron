@@ -38,6 +38,9 @@ const SUMMARY_TYPES = [
   { id: "summary", label: "要約" },
 ];
 
+/** Heuristic: messages that pertain to the summarize feature. */
+const SUMMARY_MSG_REGEX = /要約|llama|GGUF|csvPath|docx|タイムアウト|ctx/;
+
 class UIController {
   constructor() {
     this.outputTextareaElement = document.getElementById("output-textarea");
@@ -114,6 +117,16 @@ class UIController {
     return parts[parts.length - 1] || "";
   }
 
+  #appendSummaryLog(message) {
+    if (!this.summaryLogElement) return;
+    this.summaryLogElement.value +=
+      `[${new Date().toLocaleTimeString("ja-JP")}] ${message}\n`;
+    this.summaryLogElement.scrollTop = this.summaryLogElement.scrollHeight;
+    // Auto-switch to the summary log tab so the user actually sees
+    // the error rather than missing the transient toast.
+    this.#switchLogTab("summary");
+  }
+
   #bindEvents() {
     this.fileSelectButton.addEventListener("click", () => this.#pickAudioFile());
     this.runFFmpegButton.addEventListener("click", () => this.#onStart());
@@ -181,10 +194,18 @@ class UIController {
 
     window.electronAPI.processMessage((_event, message) => {
       new Notification("Ai文字起こし", { body: message });
+
+      // Mirror summarize-related messages to the summary log so the
+      // user sees the actual error instead of relying on the transient
+      // toast notification.
+      if (SUMMARY_MSG_REGEX.test(String(message))) {
+        this.#appendSummaryLog(message);
+      }
+
       this.setUiBusy(false);
       this.setSummarizeUiBusy(false);
       if (this.progressBar.mode !== "idle") {
-        const failed = /エラー|失敗|不足|見つかりません/i.test(String(message));
+        const failed = /エラー|失敗|不足|見つかりません|タイムアウト/i.test(String(message));
         this.progressBar.endProgress(!failed);
       }
     });
