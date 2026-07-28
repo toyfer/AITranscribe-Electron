@@ -31,13 +31,6 @@ const MODEL_CATALOG = Object.freeze([
   },
 ]);
 
-/** Summary types (mirrors SummarizeJob). */
-const SUMMARY_TYPES = [
-  { id: "minutes", label: "議事録" },
-  { id: "bullets", label: "箇条書き" },
-  { id: "summary", label: "要約" },
-];
-
 /** Heuristic: messages that pertain to the summarize feature. */
 const SUMMARY_MSG_REGEX = /要約|llama|GGUF|csvPath|docx|タイムアウト|ctx/;
 
@@ -53,7 +46,6 @@ class UIController {
     this.csvSelectButton = document.getElementById("csv-select-button");
     this.csvPathElement = document.getElementById("csv-path");
     this.runSummarizeButton = document.getElementById("run-summarize");
-    this.summaryClearButton = document.getElementById("summary-clear-button");
     this.csvClearButton = document.getElementById("csv-clear-button");
     this.summaryTypeButtons = document.querySelectorAll('input[name="summary-type"]');
     this.logButtons = document.querySelectorAll('button[data-log-tab]');
@@ -145,11 +137,6 @@ class UIController {
     if (this.runSummarizeButton) {
       this.runSummarizeButton.addEventListener("click", () => this.#onSummarize());
     }
-    if (this.summaryClearButton) {
-      this.summaryClearButton.addEventListener("click", () => {
-        if (this.summaryLogElement) this.summaryLogElement.value = "";
-      });
-    }
     if (this.csvClearButton) {
       this.csvClearButton.addEventListener("click", () => {
         this.fullCsvPath = "";
@@ -163,7 +150,6 @@ class UIController {
     }
 
     this.audioFile.addEventListener("loadedmetadata", () => {
-      console.log(this.audioFile.duration);
       this.audioDuration = this.audioFile.duration;
     });
   }
