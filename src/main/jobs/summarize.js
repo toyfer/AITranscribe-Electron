@@ -2,27 +2,38 @@ const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-/** Structured lines from llama-cli (JSONL per --log-format). */
 const AIT_PREFIX = "__AIT__";
 
 /**
- * One summarize run: read CSV → call llama-cli → parse token output →
+ * One summarize run: read CSV -> call llama-cli -> parse token output ->
  * write .docx with the docx npm package.
- *
- * Emits structured progress via sendProgress when provided.
  *
  * The summarize feature is optional and runs on the same air-gap
  * assumption as Whisper: llama-cli.exe and a GGUF model must be
  * placed manually under src/Whisper/{llama-cli.exe, models/llm/*.gguf}.
+ *
+ * Note: This class intentionally avoids private class fields (#name)
+ * because Node.js 22.x (bundled in Electron 43) has a known syntax
+ * checker bug that fails to track private field definitions when
+ * multiple private methods coexist with local variable shadowing.
+ * See: https://cri.dev/posts/2026-06-24-nodejs-syntax-checker-bug-private-fields-shadowing/
+ *
+ * Instead, per-instance state is stored in a WeakMap keyed by the
+ * SummarizeJob instance. The methods are plain class methods.
  */
+
+const stateMap = new WeakMap();
+
+function getState(self) {
+  let s = stateMap.get(self);
+  if (!s) {
+    s = { accumulated: "" };
+    stateMap.set(self, s);
+  }
+  return s;
+}
+
 class SummarizeJob {
-  /**
-   * @param {object} options
-   * @param {import('../runtime').RuntimeLayout} options.runtime
-   * @param {(msg: string) => void} options.sendProcessMessage UI / notification channel
-   * @param {(msg: string) => void} options.sendLog llama-cli stdout (raw) log channel
-   * @param {(payload: object) => void} [options.sendProgress] structured progress
-   */
   constructor({ runtime, sendProcessMessage, sendLog, sendProgress }) {
     this.runtime = runtime;
     this.sendProcessMessage = sendProcessMessage;
@@ -31,16 +42,6 @@ class SummarizeJob {
       typeof sendProgress === "function" ? sendProgress : () => {};
   }
 
-  /**
-   * IPC entry.
-   * @param {unknown} _event
-   * @param {{
-   *   csvPath: string,
-   *   outputPath: string,
-   *   type: 'minutes'|'bullets'|'summary',
-   *   options?: { modelPath?: string, maxTokens?: number, ctxSize?: number, temperature?: number }
-   * }} args
-   */
   async start(_event, args) {
     const csvPath = args && args.csvPath;
     const outputPath = args && args.outputPath;
@@ -49,13 +50,13 @@ class SummarizeJob {
 
     if (!csvPath || !outputPath) {
       this.sendProcessMessage(
-        `[${this.#ts()}:System]csvPath と outputPath は必須です`
+        `[${this.ts()}:System]csvPath と outputPath は必須です`
       );
       return;
     }
     if (!fs.existsSync(csvPath)) {
       this.sendProcessMessage(
-        `[${this.#ts()}:System]CSV が見つかりません: ${csvPath}`
+        `[${this.ts()}:System]CSV が見つかりません: ${csvPath}`
       );
       return;
     }
@@ -63,19 +64,18 @@ class SummarizeJob {
     const { llamaCliPath, ggufPaths } = this.runtime.checkRuntimeLayout();
     if (!fs.existsSync(llamaCliPath)) {
       this.sendProcessMessage(
-        `[${this.#ts()}:System]llama-cli.exe が見つかりません: ${llamaCliPath}\n` +
+        `[${this.ts()}:System]llama-cli.exe が見つかりません: ${llamaCliPath}\n` +
           "Whisper/ 配下に llama-cli.exe を手動配置してください (https://github.com/ggerganov/llama.cpp)."
       );
       return;
     }
     if (ggufPaths.length === 0) {
       this.sendProcessMessage(
-        `[${this.#ts()}:System]GGUF モデルが見つかりません。\n` +
+        `[${this.ts()}:System]GGUF モデルが見つかりません。\n` +
           "Whisper/models/llm/ 配下に Qwen3-0.6B GGUF Q4_K_M などを手動配置してください。"
       );
       return;
     }
-    // modelPath priority: explicit > first GGUF found
     const modelPath =
       options.modelPath && fs.existsSync(options.modelPath)
         ? options.modelPath
@@ -86,27 +86,18 @@ class SummarizeJob {
       csvText = fs.readFileSync(csvPath, "utf8");
     } catch (err) {
       this.sendProcessMessage(
-        `[${this.#ts()}:System]CSV 読み込み失敗: ${err.message}`
+        `[${this.ts()}:System]CSV 読み込み失敗: ${err.message}`
       );
       return;
     }
 
-    const prompt = this.#buildPrompt(csvText, type);
+    const prompt = this.buildPrompt(csvText, type);
     const maxTokens = options.maxTokens || 1024;
     const ctxSize = options.ctxSize || 32768;
     const temperature = options.temperature || 0.4;
 
-    this.#emit({ type: "phase", phase: "load", label: "モデル読込中", pct: 0, mode: "indeterminate" });
+    this.emit({ type: "phase", phase: "load", label: "モデル読込中", pct: 0, mode: "indeterminate" });
 
-    // llama-cli args:
-    //   -m  model.gguf
-    //   -p  prompt
-    //   -n  max tokens to generate
-    //   -c  context size
-    //   --temp temperature
-    //   --no-display-prompt
-    //   --log-disable
-    //   --log-format json
     const args = [
       "-m", modelPath,
       "-p", prompt,
@@ -122,66 +113,64 @@ class SummarizeJob {
     this.child = child;
     const stdoutBuf = { value: "" };
 
-    this.#emit({ type: "phase", phase: "infer", label: "推論中", pct: 5, mode: "measured" });
+    this.emit({ type: "phase", phase: "infer", label: "推論中", pct: 5, mode: "measured" });
 
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk) => {
       stdoutBuf.value += chunk;
-      this.#handleStdoutLine(stdoutBuf);
+      this.handleStdoutLine(stdoutBuf);
     });
 
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk) => {
-      // llama-cli emits a small amount of progress on stderr
-      const line = `[${this.#ts()}:llama]${chunk}`;
+      const line = `[${this.ts()}:llama]${chunk}`;
       this.sendLog(line);
     });
 
     child.on("error", (err) => {
       this.sendProcessMessage(
-        `[${this.#ts()}:llama]起動に失敗しました: ${err.message}`
+        `[${this.ts()}:llama]起動に失敗しました: ${err.message}`
       );
     });
 
     child.on("close", async (code) => {
       if (stdoutBuf.value.length) {
-        this.#handleStdoutLine({ value: stdoutBuf.value, flush: true });
+        this.handleStdoutLine({ value: stdoutBuf.value, flush: true });
         stdoutBuf.value = "";
       }
-      const summaryText = (this.accumulated || "").trim();
+      const summaryText = (getState(this).accumulated || "").trim();
       const tTotal = (Date.now() - t0) / 1000;
 
       if (code !== 0) {
         this.sendProcessMessage(
-          `[${this.#ts()}:llama]エラー code=${code}`
+          `[${this.ts()}:llama]エラー code=${code}`
         );
-        this.#emit({ type: "complete", pct: 0, ok: false });
+        this.emit({ type: "complete", pct: 0, ok: false });
         return;
       }
       if (!summaryText) {
         this.sendProcessMessage(
-          `[${this.#ts()}:llama]出力が空でした。モデルが配置されているか、ctx サイズが十分か確認してください。`
+          `[${this.ts()}:llama]出力が空でした。モデルが配置されているか、ctx サイズが十分か確認してください。`
         );
-        this.#emit({ type: "complete", pct: 0, ok: false });
+        this.emit({ type: "complete", pct: 0, ok: false });
         return;
       }
 
-      // Write docx
-      this.#emit({ type: "phase", phase: "save", label: "docx 書き出し中", pct: 95, mode: "indeterminate" });
+      this.emit({ type: "phase", phase: "save", label: "docx 書き出し中", pct: 95, mode: "indeterminate" });
       try {
-        await this.#writeDocx({ outputPath, summaryText, type, csvPath });
+        await this.writeDocx({ outputPath, summaryText, type, csvPath });
       } catch (err) {
         this.sendProcessMessage(
-          `[${this.#ts()}:System]docx 書き出し失敗: ${err.message}`
+          `[${this.ts()}:System]docx 書き出し失敗: ${err.message}`
         );
-        this.#emit({ type: "complete", pct: 0, ok: false });
+        this.emit({ type: "complete", pct: 0, ok: false });
         return;
       }
 
       this.sendProcessMessage(
-        `[${this.#ts()}:System]要約が完了しました\n出力: ${outputPath}\n所要: ${tTotal.toFixed(1)}s`
+        `[${this.ts()}:System]要約が完了しました\n出力: ${outputPath}\n所要: ${tTotal.toFixed(1)}s`
       );
-      this.#emit({
+      this.emit({
         type: "complete",
         pct: 100,
         ok: true,
@@ -190,18 +179,12 @@ class SummarizeJob {
     });
   }
 
-  /**
-   * Build the prompt depending on summary type.
-   * @param {string} csvText
-   * @param {'minutes'|'bullets'|'summary'} type
-   */
-  #buildPrompt(csvText, type) {
-    // Strip header (point,start,end,text). Allow quoted commas.
+  buildPrompt(csvText, type) {
     const lines = csvText.split(/\r?\n/).filter(Boolean);
     const rows = [];
     for (let i = 0; i < lines.length; i++) {
-      const cols = this.#parseCsvLine(lines[i]);
-      if (i === 0) continue; // header
+      const cols = this.parseCsvLine(lines[i]);
+      if (i === 0) continue;
       if (cols.length < 4) continue;
       rows.push(cols.slice(3).join(",").trim());
     }
@@ -221,7 +204,6 @@ class SummarizeJob {
         "----\n" + text + "\n----"
       );
     }
-    // bullets (default)
     return (
       "以下は日本語の文字起こしです。要点を箇条書きで要約してください。\n" +
       "各項目は見出し+1行程度の簡潔な説明にしてください。\n\n" +
@@ -229,8 +211,7 @@ class SummarizeJob {
     );
   }
 
-  /** Simple CSV line parser handling double-quoted fields. */
-  #parseCsvLine(line) {
+  parseCsvLine(line) {
     const cols = [];
     let cur = "";
     let inQuotes = false;
@@ -249,27 +230,21 @@ class SummarizeJob {
     return cols;
   }
 
-  /**
-   * llama-cli emits a single text stream. We accumulate incrementally.
-   * If --log-format json were used we would parse here, but the
-   * simplest portable form is the plain text output.
-   */
-  #handleStdoutLine(buf) {
-    // Simple: just drain the buffer as the generated text.
-    this.accumulated = (this.accumulated || "") + buf.value;
+  handleStdoutLine(buf) {
+    const state = getState(this);
+    state.accumulated = (state.accumulated || "") + buf.value;
     buf.value = "";
-    // Emit a coarse progress (text length) for renderer.
-    const len = (this.accumulated || "").length;
-    this.#emit({ type: "phase", phase: "infer", label: `推論中 (${len} chars)`, pct: 0, mode: "indeterminate" });
+    const len = (state.accumulated || "").length;
+    this.emit({ type: "phase", phase: "infer", label: `推論中 (${len} chars)`, pct: 0, mode: "indeterminate" });
   }
 
-  #ts() {
+  ts() {
     const d = new Date();
     const p = (n) => String(n).padStart(2, "0");
     return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   }
 
-  #emit(payload) {
+  emit(payload) {
     try {
       this.sendProgress({ ...payload, ts: Date.now() });
     } catch (err) {
@@ -277,28 +252,9 @@ class SummarizeJob {
     }
   }
 
-  /**
-   * Build and write a .docx file using the `docx` npm package.
-   *
-   * docx 9.x has "type": "module" in its package.json, but it also
-   * provides a CommonJS entry point via exports.require.default
-   * (dist/index.cjs). We use require() with the module's package
-   * path to load the CJS bundle directly, avoiding any ESM syntax
-   * detection in this file.
-   *
-   * Using dynamic import("docx") here would cause Node.js's module
-   * loader to detect ESM syntax (the `import` keyword) in this file
-   * and attempt to re-parse it as an ES module, which fails on the
-   * private class fields (#ts, #buildPrompt, etc.) with a misleading
-   * "Private field '#ts' must be declared in an enclosing class"
-   * SyntaxError.
-   */
-  async #writeDocx({ outputPath, summaryText, type, csvPath }) {
-    // Lazy require — only loaded when summarize is actually used.
-    // We resolve the docx package's CJS entry point directly.
+  async writeDocx({ outputPath, summaryText, type, csvPath }) {
     let docx;
     try {
-      // require("docx") resolves via exports map to dist/index.cjs
       docx = require("docx");
     } catch (err) {
       throw new Error(
@@ -309,8 +265,6 @@ class SummarizeJob {
     }
     const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
 
-    // Convert summary text to paragraphs. Support both plain text and
-    // simple Markdown headings (# / ##) and bullet lines (- ).
     const lines = summaryText.split(/\r?\n/);
     const paragraphs = [];
     paragraphs.push(
