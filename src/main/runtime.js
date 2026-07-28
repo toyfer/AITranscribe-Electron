@@ -74,6 +74,34 @@ class RuntimeLayout {
   }
 
   /**
+   * List all GGUF models under Whisper/models/llm/ with metadata.
+   * Used by the model selector dropdown in the renderer.
+   * @returns {Array<{ name: string, path: string, sizeMB: number }>}
+   */
+  listGgufModels() {
+    const ggufDir = this.resolveBundledPath("models", "llm");
+    const models = [];
+    if (!fs.existsSync(ggufDir)) return models;
+    for (const name of fs.readdirSync(ggufDir)) {
+      if (!name.toLowerCase().endsWith(".gguf")) continue;
+      const fullPath = path.join(ggufDir, name);
+      try {
+        const stat = fs.statSync(fullPath);
+        models.push({
+          name,
+          path: fullPath,
+          sizeMB: Math.round(stat.size / (1024 * 1024)),
+        });
+      } catch (_) {
+        // skip unreadable files
+      }
+    }
+    // Sort by size ascending (smaller models first = faster inference)
+    models.sort((a, b) => a.sizeMB - b.sizeMB);
+    return models;
+  }
+
+  /**
    * Resolve model/script paths from renderer modelArgs (relative to app root).
    * @param {{ script: string, model: string }} modelArgs
    */
