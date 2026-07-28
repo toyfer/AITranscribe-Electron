@@ -1,10 +1,13 @@
 name: PartialBuild AITranscribe-Electron for Windows
 
-# Online assembly WITHOUT zip creation — produces workflow artifacts only.
+# Online assembly WITH zip creation (matches fullbuild artifact contents).
 # Used for CI checks (does the build succeed? do all pieces download?).
 # GitHub Release zip is produced by fullbuild (workflow_dispatch or push tag).
 #
-# NOTE: Whisper モデル・llama-cli・GGUF は含めない (docs/models.md 参照)。
+# Includes: app + FFmpeg + Python + Whisper models + llama-cli + GGUF
+# (fullbuild artifact matches the convenience of "all-in" dev builds).
+# For the 2GB-limited GitHub Release zip, fullbuild still strips the
+# large binaries from the release-staging directory.
 
 on:
   workflow_dispatch:
@@ -45,6 +48,17 @@ jobs:
       - name: Install Node.js dependencies (locked)
         run: npm ci
 
+      - name: Set up Python for huggingface-cli
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install huggingface-cli via pip
+        shell: pwsh
+        run: |
+          pip install huggingface_hub
+          hf --version
+
       - name: FFmpeg Download
         shell: pwsh
         run: Invoke-WebRequest -UseBasicParsing -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip -Outfile FFmpeg.zip
@@ -52,6 +66,36 @@ jobs:
       - name: Python Embeddable Download (pinned 3.11.4)
         shell: pwsh
         run: Invoke-WebRequest -UseBasicParsing -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
+
+      - name: Faster-Whisper models (small + turbo) via HF CLI
+        shell: pwsh
+        run: |
+          hf download Systran/faster-whisper-small --local-dir src/Whisper/models/small --quiet
+          hf download deepdml/faster-whisper-large-v3-turbo-ct2 --local-dir src/Whisper/models/turbo --quiet
+
+      - name: llama-cli (latest CPU Windows release)
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod -UseBasicParsing -Uri "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
+          $asset = $release.assets | Where-Object { $_.name -like "*bin-win-cpu-x64.zip" } | Select-Object -First 1
+          if (-not $asset) {
+            Write-Error "No win-cpu-x64 asset in latest llama.cpp release"
+            exit 1
+          }
+          Write-Host "Downloading $($asset.name) (tag=$($release.tag_name))"
+          Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -Outfile llama.zip
+          Expand-Archive -Path llama.zip -DestinationPath llama
+          Copy-Item -Path "llama\llama-cli.exe" -Destination "src\Whisper\llama-cli.exe"
+
+      - name: GGUF model (Qwen3-0.6B Q4_K_M via unsloth mirror)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path src\Whisper\models\llm
+          hf download unsloth/Qwen3-0.6B-GGUF --include "Qwen3-0.6B-Q4_K_M.gguf" --local-dir src/Whisper/models/llm --quiet
+          $src = "src\Whisper\models\llm\Qwen3-0.6B-Q4_K_M.gguf"
+          if (Test-Path $src) {
+            Move-Item -Path $src -Destination "src\Whisper\models\llm\qwen3-0.6b-q4_k_m.gguf"
+          }
 
       - name: Setup FFmpeg + Embeddable + pinned pip deps
         shell: pwsh
@@ -67,7 +111,7 @@ jobs:
           src\Whisper\python.exe src\Whisper\get-pip.py
           src\Whisper\python.exe -m pip install -U "pip==25.0.1"
           Copy-Item requirements-whisper.txt src\Whisper\requirements-whisper.txt
-          src\Whisper\python.exe -m pip install -r src\Whisper\requirements-whisper.txt
+          src\Whisper\python.exe -m pip install -r src/Whisper\requirements-whisper.txt
 
       - name: Build Electron project for Windows
         run: npm run build_win
@@ -75,7 +119,7 @@ jobs:
           BUILD_DATE: ${{ env.BUILD_DATE }}
           GIT_SHORT: ${{ github.sha }}
 
-      - name: Archive workflow artifact (no zip, no release)
+      - name: Archive workflow artifact (all-in, matches fullbuild artifact)
         uses: actions/upload-artifact@v5
         with:
           name: AITranscribe-Electron_Partial
@@ -84,6 +128,3 @@ jobs:
             build/win-unpacked/
             package-lock.json
             requirements-whisper.txt
-            !build/win-unpacked/**/Whisper/models/**
-            !build/win-unpacked/**/Whisper/llama-cli.exe
-            !build/win-unpacked/**/Whisper/models/llm/**
