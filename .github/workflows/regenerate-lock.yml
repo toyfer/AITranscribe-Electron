@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.target_branch || 'main' }}
           # push に必要（デフォルト true だが明示）
@@ -44,10 +44,12 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Node.js (Phase 3 pin)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "24.18.0"
           # lock 再生成前は cache を使わない（古い lock で汚染しない）
+          # v5 の自動キャッシュも明示的に無効化
+          package-manager-cache: false
 
       - name: Show environment
         run: |
