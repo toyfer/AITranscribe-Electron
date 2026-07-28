@@ -8,8 +8,8 @@
  */
 
 /**
- * Single source of truth: UI id ↔ local dir ↔ HF source ↔ fallback multiplier.
- * estimatedDurationMul ≈ CPU int8 wall-time / audio length (rough fallback).
+ * Single source of truth: UI id <-> local dir <-> HF source <-> fallback multiplier.
+ * estimatedDurationMul ~ CPU int8 wall-time / audio length (rough fallback).
  */
 const MODEL_CATALOG = Object.freeze([
   {
@@ -25,7 +25,6 @@ const MODEL_CATALOG = Object.freeze([
     label: "精度重視（推奨）",
     dir: "turbo",
     hf: "deepdml/faster-whisper-large-v3-turbo-ct2",
-    // CPU int8 では small より重いのが普通（旧 0.55 は過小になりやすい）
     estimatedDurationMul: 1.5,
     default: true,
   },
@@ -56,8 +55,8 @@ class UIController {
     this.summaryClearButton = document.getElementById("summary-clear-button");
     this.csvClearButton = document.getElementById("csv-clear-button");
     this.summaryTypeButtons = document.querySelectorAll('input[name="summary-type"]');
-    this.logButtons = document.querySelectorAll('button[data-log-tab]');
-    this.logPanes = document.querySelectorAll('[data-log-pane]');
+    this.logButtons = document.querySelectorAll("button[data-log-tab]");
+    this.logPanes = document.querySelectorAll("[data-log-pane]");
 
     this.modelButtons = document.querySelectorAll('input[name="model"]');
 
@@ -220,13 +219,9 @@ class UIController {
     if (typeof window.electronAPI.processSummary === "function") {
       window.electronAPI.processSummary((_event, payload) => {
         console.log("[summary progress]", payload);
-        // We just route raw phases to a global log; UI is read-only
-        if (payload && payload.label) {
-          if (this.summaryLogElement) {
-            this.summaryLogElement.value += `[${new Date().toLocaleTimeString("ja-JP")}] ${payload.label}\n`;
-            this.summaryLogElement.scrollTop = this.summaryLogElement.scrollHeight;
-          }
-        }
+        // Only update the progress bar, do NOT write phase labels
+        // (e.g. "推論中 (123 chars)") to the summary log.
+        // The actual inference text is streamed via returnSummary.
       });
     }
   }
@@ -278,7 +273,7 @@ class UIController {
     for (const btn of this.summaryTypeButtons) btn.disabled = isBusy;
   }
 
-  /** Map catalog id → IPC payload. Does not mutate audioDuration. */
+  /** Map catalog id -> IPC payload. Does not mutate audioDuration. */
   selectModelConfig(modelId, durationSec) {
     const entry = this.#findModel(modelId);
     if (!entry) return null;
