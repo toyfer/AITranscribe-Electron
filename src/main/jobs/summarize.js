@@ -8,7 +8,10 @@ const DEFAULT_CTX_SIZE = 4096;
 const DEFAULT_MAX_TOKENS = 1024;
 const DEFAULT_TEMPERATURE = 0.4;
 const INFERENCE_TIMEOUT_MS = 5 * 60 * 1000;
-const THINKING_BLOCK_RE = /\[Start thinking\][\s\S]*?\[End thinking\]/g;
+// Qwen3 uses <think>...</think> tags for reasoning blocks.
+// See: https://hf.co/unsloth/Qwen3-0.6B-GGUF
+// The non-greedy [\s\S]*? ensures we match the shortest possible block.
+const THINKING_BLOCK_RE = /<think>[\s\S]*?<\/think>/g;
 const BANNER_RE = /^[▄█\s]+|build\s+:|model\s+:|ftype\s+:|modalities\s+:|available commands:|\/exit|\/regen|\/clear|\/read|\/glob|Loading model/i;
 
 const stateMap = new WeakMap();
@@ -104,6 +107,9 @@ class SummarizeJob {
       "--no-display-prompt",
       "--log-disable",
       "--single-turn",
+      // Disable conversation mode to ensure single-turn text completion.
+      // Without -no-cnv, llama-cli may enter interactive mode on some models.
+      "-no-cnv",
     ];
 
     const t0 = Date.now();
@@ -172,7 +178,7 @@ class SummarizeJob {
         return;
       }
 
-      // Remove thinking blocks and trim
+      // Remove thinking blocks and trim (Qwen3 uses <think>...</think>)
       summaryText = summaryText.replace(THINKING_BLOCK_RE, "").trim();
 
       if (!summaryText) {
@@ -265,26 +271,26 @@ class SummarizeJob {
     // Accumulate ALL text (including thinking blocks) for final docx
     state.accumulated = (state.accumulated || "") + chunk;
 
-    // For streaming display, filter out thinking blocks
+    // For streaming display, filter out thinking blocks (Qwen3: <think>...</think>)
     state.displayBuffer = (state.displayBuffer || "") + chunk;
 
     if (state.inThinkingBlock) {
-      const endIdx = state.displayBuffer.indexOf("[End thinking]");
+      const endIdx = state.displayBuffer.indexOf("</think>");
       if (endIdx !== -1) {
         state.inThinkingBlock = false;
-        state.displayBuffer = state.displayBuffer.slice(endIdx + "[End thinking]".length);
+        state.displayBuffer = state.displayBuffer.slice(endIdx + "</think>".length);
       } else {
         return;
       }
     }
 
-    const startIdx = state.displayBuffer.indexOf("[Start thinking]");
+    const startIdx = state.displayBuffer.indexOf("<think>");
     if (startIdx !== -1) {
       const before = state.displayBuffer.slice(0, startIdx);
-      const after = state.displayBuffer.slice(startIdx + "[Start thinking]".length);
-      const endIdx = after.indexOf("[End thinking]");
+      const after = state.displayBuffer.slice(startIdx + "<think>".length);
+      const endIdx = after.indexOf("</think>");
       if (endIdx !== -1) {
-        state.displayBuffer = before + after.slice(endIdx + "[End thinking]".length);
+        state.displayBuffer = before + after.slice(endIdx + "</think>".length);
       } else {
         state.inThinkingBlock = true;
         state.displayBuffer = before;
