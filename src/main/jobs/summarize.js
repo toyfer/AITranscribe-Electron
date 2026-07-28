@@ -98,7 +98,18 @@ class SummarizeJob {
 
     this.emit({ type: "phase", phase: "load", label: "モデル読込中", pct: 0, mode: "indeterminate" });
 
-    const args = [
+    // llama-cli args:
+    //   -m  model.gguf
+    //   -p  prompt
+    //   -n  max tokens to generate
+    //   -c  context size
+    //   --temp temperature
+    //   --no-display-prompt
+    //   --log-disable
+    //   --log-format json
+    // Renamed from 'args' to 'llamaArgs' to avoid shadowing the
+    // function parameter 'args' (CSV path / output path / type).
+    const llamaArgs = [
       "-m", modelPath,
       "-p", prompt,
       "-n", String(maxTokens),
@@ -109,7 +120,7 @@ class SummarizeJob {
     ];
 
     const t0 = Date.now();
-    const child = spawn(llamaCliPath, args, { windowsHide: true });
+    const child = spawn(llamaCliPath, llamaArgs, { windowsHide: true });
     this.child = child;
     const stdoutBuf = { value: "" };
 
