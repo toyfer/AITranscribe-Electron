@@ -18,6 +18,15 @@ class ProgressBar {
     this.inferStartedAt = null;
     this.lastAudioPct = 0;
     this.lastMetrics = null;
+    /**
+     * Default completion labels per feature. Callers can override via
+     * `endProgress(completed, extraText, customLabel)` when a different
+     * copy is needed (e.g. the Summarize-Suppoter window).
+     */
+    this.defaultLabels = {
+      completed: "文字起こしが完了しました",
+      pending: "もう少しで完了します...",
+    };
   }
 
   /**
@@ -157,12 +166,24 @@ class ProgressBar {
     }
   }
 
-  endProgress(completed = false, extraText = "") {
+  /**
+   * End the progress bar.
+   * @param {boolean} [completed=true] success vs pending
+   * @param {string}  [extraText=""]    reserved for future use
+   * @param {string}  [customLabel=null] override the default completion
+   *   label. When null, uses this.defaultLabels.completed / .pending.
+   *   The Summarize-Suppoter window passes "要約が完了しました" here so
+   *   users do not see "文字起こしが完了しました" in a summarize context.
+   */
+  endProgress(completed = true, extraText = "", customLabel = null) {
     this.#clearTimer();
     this.mode = "idle";
-    const label = completed
-      ? "文字起こしが完了しました"
-      : "もう少しで完了します...";
+    const label =
+      customLabel != null
+        ? customLabel
+        : completed
+          ? this.defaultLabels.completed
+          : this.defaultLabels.pending;
     this.currentPct = 100;
     this.#paint(100, label, { striped: !completed });
   }
