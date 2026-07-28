@@ -14,6 +14,9 @@ const DEFAULT_CTX_SIZE = 4096;
  *  stuck on "推論中 (N chars)". */
 const INFERENCE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
+/** Regex to strip Qwen3 "thinking" blocks: [Start thinking]...[End thinking] */
+const THINKING_BLOCK_RE = /\[Start thinking\][\s\S]*?\[End thinking\]/g;
+
 /**
  * One summarize run: read CSV -> call llama-cli -> parse token output ->
  * write .docx with the docx npm package.
@@ -110,6 +113,16 @@ class SummarizeJob {
 
     this.emit({ type: "phase", phase: "load", label: "モデル読込中", pct: 0, mode: "indeterminate" });
 
+    // llama-cli args:
+    //   -m  model.gguf
+    //   -p  prompt
+    //   -n  max tokens to generate
+    //   -c  context size
+    //   --temp temperature
+    //   --no-display-prompt
+    //   --log-disable
+    //   --no-conversation   ← exit after generation instead of entering
+    //                         interactive chat mode (prevents timeout)
     const llamaArgs = [
       "-m", modelPath,
       "-p", prompt,
@@ -118,6 +131,7 @@ class SummarizeJob {
       "--temp", String(temperature),
       "--no-display-prompt",
       "--log-disable",
+      "--no-conversation",
     ];
 
     const t0 = Date.now();
@@ -172,7 +186,7 @@ class SummarizeJob {
         this.handleStdoutLine({ value: stdoutBuf.value, flush: true });
         stdoutBuf.value = "";
       }
-      const summaryText = (getState(this).accumulated || "").trim();
+      let summaryText = (getState(this).accumulated || "").trim();
       const tTotal = (Date.now() - t0) / 1000;
 
       if (timedOut) {
@@ -186,6 +200,13 @@ class SummarizeJob {
         this.emit({ type: "complete", pct: 0, ok: false });
         return;
       }
+
+      // Strip Qwen3 "thinking" blocks: [Start thinking]...[End thinking]
+      // These contain English reasoning that should not appear in the
+      // final docx output. Qwen3 models emit these before the actual
+      // Japanese response.
+      summaryText = summaryText.replace(THINKING_BLOCK_RE, "").trim();
+
       if (!summaryText) {
         this.sendProcessMessage(
           `[${this.ts()}:llama]出力が空でした。モデルが配置されているか、ctx サイズが十分か確認してください。`
