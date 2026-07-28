@@ -7,11 +7,11 @@ const AIT_PREFIX = "__AIT__";
 const DEFAULT_CTX_SIZE = 4096;
 const DEFAULT_MAX_TOKENS = 1024;
 const DEFAULT_TEMPERATURE = 0.4;
-const INFERENCE_TIMEOUT_MS = 5 * 60 * 1000;
-// Qwen3.x uses <think>...</think> tags for reasoning blocks.
-// See: https://hf.co/unsloth/Qwen3.5-0.8B-GGUF
-// Non-greedy match: shortest possible block.
-const THINKING_BLOCK_RE = /<think>[\s\S]*?<\/think>/g;
+const INFERENCE_TIMEOUT_MS = 10 * 60 * 1000;
+// Qwen3.x emits reasoning blocks in either `<think>...</think>` or
+// `[Start thinking] ... [End thinking]` form depending on the GGUF
+// build and sampling flags. Strip both from the stream.
+const THINKING_BLOCK_RE = /\u003cthink\u003e[\s\S]*?\u003c\/think\u003e|\[Start thinking\][\s\S]*?(?:\[End thinking\]|$)/gi;
 const BANNER_RE = /^[▄█\s]+|build\s+:|model\s+:|ftype\s+:|modalities\s+:|available commands:|\/exit|\/regen|\/clear|\/read|\/glob|Loading model/i;
 
 const stateMap = new WeakMap();
@@ -19,14 +19,14 @@ const stateMap = new WeakMap();
 function getState(self) {
   let s = stateMap.get(self);
   if (!s) {
-    s = { accumulated: "", displayBuffer: "", inThinkingBlock: false };
+    s = { accumulated: "", displayedLength: 0 };
     stateMap.set(self, s);
   }
   return s;
 }
 
 function resetState(self) {
-  stateMap.set(self, { accumulated: "", displayBuffer: "", inThinkingBlock: false });
+  stateMap.set(self, { accumulated: "", displayedLength: 0 });
 }
 
 class SummarizeJob {
@@ -301,38 +301,23 @@ class SummarizeJob {
     const chunk = buf.value;
     buf.value = "";
 
-    state.accumulated = (state.accumulated || "") + chunk;
-    state.displayBuffer = (state.displayBuffer || "") + chunk;
+    state.accumulated += chunk;
 
-    if (state.inThinkingBlock) {
-      const endIdx = state.displayBuffer.indexOf("</think>");
-      if (endIdx !== -1) {
-        state.inThinkingBlock = false;
-        state.displayBuffer = state.displayBuffer.slice(endIdx + "</think>".length);
-      } else {
-        return;
-      }
+    // Strip both `<think>...</think>` and `[Start thinking]...` blocks.
+    // Using the full accumulated buffer handles tags split across chunks.
+    // If `[End thinking]` never arrives, the trailing block is still
+    // removed once the process finishes (close handler re-runs the regex).
+    const cleaned = state.accumulated.replace(THINKING_BLOCK_RE, "");
+    const delta = cleaned.slice(state.displayedLength);
+    state.displayedLength = cleaned.length;
+
+    if (delta) {
+      this.sendLog(delta);
     }
 
-    const startIdx = state.displayBuffer.indexOf("<think>");
-    if (startIdx !== -1) {
-      const before = state.displayBuffer.slice(0, startIdx);
-      const after = state.displayBuffer.slice(startIdx + "<think>".length);
-      const endIdx = after.indexOf("</think>");
-      if (endIdx !== -1) {
-        state.displayBuffer = before + after.slice(endIdx + "</think>".length);
-      } else {
-        state.inThinkingBlock = true;
-        state.displayBuffer = before;
-      }
-    }
+    state.accumulated = cleaned;
 
-    if (state.displayBuffer) {
-      this.sendLog(state.displayBuffer);
-      state.displayBuffer = "";
-    }
-
-    const len = (state.accumulated || "").length;
+    const len = cleaned.length;
     this.emit({ type: "phase", phase: "infer", label: `推論中 (${len} chars)`, pct: 0, mode: "indeterminate" });
   }
 
