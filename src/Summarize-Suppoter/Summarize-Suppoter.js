@@ -1,12 +1,20 @@
 /**
- * Summarize-Suppoter renderer — separate window for the summarize feature.
+ * Summarize-Suppoter renderer — separate BrowserWindow for the summarize feature.
  * Mirrors the SummarizeJob UIController logic that used to live in
  * src/renderer.js. Talks only via window.electronAPI (preload).
+ *
+ * The main process WindowManager routes IPC events so this window only
+ * receives summarize-related events (return:Summary, process:Summary,
+ * process:Message). Transcribe events never reach here, so we do NOT
+ * register return:Command / process:Progress listeners.
  *
  * UI: パラメータ + 要約種別 + CSV選択 + 進捗 + ログ
  */
 
 const SUMMARY_MSG_REGEX = /要約|llama|GGUF|csvPath|docx|タイムアウト|ctx/;
+
+/** Fallback ETA in seconds for the progress bar (overridden by measured events). */
+const SUMMARIZE_FALLBACK_SEC = 180;
 
 class SummarizeSuppoterController {
   constructor() {
@@ -22,6 +30,7 @@ class SummarizeSuppoterController {
     this.paramCtx = document.getElementById("param-ctx");
     this.paramTokens = document.getElementById("param-tokens");
     this.paramTemp = document.getElementById("param-temp");
+    this.paramInputs = [this.paramCtx, this.paramTokens, this.paramTemp].filter(Boolean);
 
     this.fullCsvPath = "";
     this.progressBar = new ProgressBar();
@@ -90,6 +99,12 @@ class SummarizeSuppoterController {
     return { ctxSize, maxTokens, temperature };
   }
 
+  /**
+   * Toggle the busy state of the summarize UI.
+   * - Disables the action buttons + summary type radio while running.
+   * - Locks the parameter inputs with `readOnly` so the user sees
+   *   that changes are not accepted during a run.
+   */
   setUiBusy(isBusy) {
     this.jobBusy = isBusy;
     if (this.runSummarizeButton) {
@@ -99,6 +114,7 @@ class SummarizeSuppoterController {
     if (this.csvSelectButton) this.csvSelectButton.disabled = isBusy;
     if (this.csvClearButton) this.csvClearButton.disabled = isBusy;
     for (const btn of this.summaryTypeButtons) btn.disabled = isBusy;
+    for (const input of this.paramInputs) input.readOnly = isBusy;
   }
 
   #bindEvents() {
@@ -122,6 +138,10 @@ class SummarizeSuppoterController {
   }
 
   #bindIpc() {
+    // Only listen to channels that the WindowManager routes to this
+    // window. We deliberately do NOT register return:Command /
+    // processProgress listeners — those events belong to the transcribe
+    // window and should never reach here.
     if (window.electronAPI.returnSummary) {
       window.electronAPI.returnSummary((_event, output) => {
         if (this.summaryLogElement) {
@@ -141,7 +161,11 @@ class SummarizeSuppoterController {
         this.setUiBusy(false);
         if (this.progressBar.mode !== "idle") {
           const failed = /エラー|失敗|不足|見つかりません|タイムアウト/i.test(String(message));
-          this.progressBar.endProgress(!failed);
+          this.progressBar.endProgress(
+            !failed,
+            "",
+            failed ? "要約に失敗しました" : "要約が完了しました"
+          );
         }
       });
     }
@@ -153,15 +177,6 @@ class SummarizeSuppoterController {
           this.#appendLog(payload.label);
         }
       });
-    }
-
-    // processProgress is for the transcribe job — ignore here, but keep
-    // the listener attached so the preload contract is satisfied.
-    if (typeof window.electronAPI.processProgress === "function") {
-      window.electronAPI.processProgress((_event, _payload) => {});
-    }
-    if (typeof window.electronAPI.returnCommand === "function") {
-      window.electronAPI.returnCommand((_event, _output) => {});
     }
   }
 
@@ -206,7 +221,7 @@ class SummarizeSuppoterController {
       this.summaryLogElement.value = "";
       this.#appendLog("要約を開始します");
     }
-    this.progressBar.startProgress(60);
+    this.progressBar.startProgress(SUMMARIZE_FALLBACK_SEC);
     window.electronAPI.runSummarize({
       csvPath: this.fullCsvPath,
       outputPath,
