@@ -64,7 +64,7 @@ class SummarizeJob {
     if (!fs.existsSync(llamaCliPath)) {
       this.sendProcessMessage(
         `[${this.#ts()}:System]llama-cli.exe が見つかりません: ${llamaCliPath}\n` +
-          "Whisper/ 配下に llama-cli.exe を手動配置してください (https://github.com/ggerganov/llama.cpp)。"
+          "Whisper/ 配下に llama-cli.exe を手動配置してください (https://github.com/ggerganov/llama.cpp)."
       );
       return;
     }
@@ -279,16 +279,27 @@ class SummarizeJob {
 
   /**
    * Build and write a .docx file using the `docx` npm package.
-   * Dynamic import() is used because docx 9.x is an ESM-only package
-   * ("type": "module" in its package.json). Using require() for an
-   * ESM package in a CommonJS context (Electron main process) causes
-   * Node.js to throw a SyntaxError during module parsing.
+   *
+   * docx 9.x has "type": "module" in its package.json, but it also
+   * provides a CommonJS entry point via exports.require.default
+   * (dist/index.cjs). We use require() with the module's package
+   * path to load the CJS bundle directly, avoiding any ESM syntax
+   * detection in this file.
+   *
+   * Using dynamic import("docx") here would cause Node.js's module
+   * loader to detect ESM syntax (the `import` keyword) in this file
+   * and attempt to re-parse it as an ES module, which fails on the
+   * private class fields (#ts, #buildPrompt, etc.) with a misleading
+   * "Private field '#ts' must be declared in an enclosing class"
+   * SyntaxError.
    */
   async #writeDocx({ outputPath, summaryText, type, csvPath }) {
-    // Dynamic import — only loaded when summarize is actually used.
+    // Lazy require — only loaded when summarize is actually used.
+    // We resolve the docx package's CJS entry point directly.
     let docx;
     try {
-      docx = await import("docx");
+      // require("docx") resolves via exports map to dist/index.cjs
+      docx = require("docx");
     } catch (err) {
       throw new Error(
         "`docx` パッケージが見つかりません。`npm install docx` を実行してください。 (" +
