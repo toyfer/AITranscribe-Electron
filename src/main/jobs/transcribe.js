@@ -1,23 +1,21 @@
 const { spawn } = require("child_process");
 const fs = require("fs");
+const { app } = require("electron");
 const { createTempJob, safeDeleteFile } = require("../utils/fs-temp");
 const { getNow } = require("../utils/time");
 
 /** Structured lines from Faster-Whisper.py (stdout). */
 const AIT_PREFIX = "__AIT__";
 
-/**
- * One transcription run: FFmpeg → Faster-Whisper → copy CSV next to input.
- * Emits measured progress via sendProgress when provided.
- */
+/** True when running as a packaged app; controls verbose dev logging. */
+const isPackaged = app && typeof app.isPackaged === "boolean" ? app.isPackaged : true;
+
+/** Conditional dev-only console output. */
+function devLog(...args) {
+  if (!isPackaged) console.log(...args);
+}
+
 class TranscribeJob {
-  /**
-   * @param {object} options
-   * @param {import('../runtime').RuntimeLayout} options.runtime
-   * @param {(msg: string) => void} options.sendProcessMessage UI / notification channel
-   * @param {(msg: string) => void} options.sendCommandOutput log textarea channel
-   * @param {(payload: object) => void} [options.sendProgress] structured progress
-   */
   constructor({ runtime, sendProcessMessage, sendCommandOutput, sendProgress }) {
     this.runtime = runtime;
     this.sendProcessMessage = sendProcessMessage;
@@ -26,11 +24,6 @@ class TranscribeJob {
       typeof sendProgress === "function" ? sendProgress : () => {};
   }
 
-  /**
-   * IPC entry: same signature as former runFFmpeg(_event, args).
-   * @param {unknown} _event
-   * @param {[string, object]} args
-   */
   start(_event, args) {
     const inputPath = args[0];
     const modelArgs = args[1] || {};
@@ -112,9 +105,10 @@ class TranscribeJob {
       mode: "indeterminate",
     });
 
-    // shell を使わず引数配列で渡す（空白・日本語パス対応 / インジェクション回避）
-    const ffmpegArgs = ["-y", "-i", inputPath, "-ar", "16000", job.tempWAV];
-    console.log(ffmpegPath, ffmpegArgs.join(" "));
+    // 引数配列で渡す (shell 無し): 空白・日本語パス対応 / インジェクション回避
+    // -ar 16000 -ac 1: Faster-Whisper は 16kHz モノラル前提
+    const ffmpegArgs = ["-y", "-i", inputPath, "-ar", "16000", "-ac", "1", job.tempWAV];
+    devLog("[FFmpeg cmd]", ffmpegPath, ffmpegArgs.join(" "));
 
     const tFfmpegStart = Date.now();
     const child = spawn(ffmpegPath, ffmpegArgs, {
@@ -122,15 +116,11 @@ class TranscribeJob {
     });
 
     child.stdout.on("data", (data) => {
-      const line = `[${getNow()}:FFmpeg]${data}`;
-      console.log(line);
-      this.sendCommandOutput(line);
+      this.sendCommandOutput(`[${getNow()}:FFmpeg]${data}`);
     });
 
     child.stderr.on("data", (data) => {
-      const line = `[${getNow()}:FFmpeg]${data}`;
-      console.log(line);
-      this.sendCommandOutput(line);
+      this.sendCommandOutput(`[${getNow()}:FFmpeg]${data}`);
     });
 
     child.on("error", (err) => {
@@ -148,7 +138,7 @@ class TranscribeJob {
         safeDeleteFile(job.tempWAV);
         return;
       }
-      console.log(`[${getNow()}:FFmpeg]child process exited with code ${code}`);
+      devLog(`[FFmpeg]child process exited with code ${code}`);
       this.sendCommandOutput(
         `[${getNow()}:FFmpeg]音声処理が完了しました (${ctx.metrics.tFfmpeg.toFixed(2)}s)`
       );
@@ -174,8 +164,11 @@ class TranscribeJob {
       mode: "indeterminate",
     });
 
+    // 日本語パス対応: spawn() に引数配列を渡すとWindowsでも各引数が
+    // 個別の CreateProcess 引数として扱われるため、Python 側にそのまま
+    // Unicode パスが渡る。Python 3 が Unicode パスに対応していれば動作する。
     const pythonArgs = ["-u", scriptPath, modelPath, job.tempWAV];
-    console.log(pythonPath, pythonArgs.join(" "));
+    devLog("[Whisper cmd]", pythonPath, pythonArgs.join(" "));
 
     const tWhisperStart = Date.now();
     const child = spawn(pythonPath, pythonArgs, {
@@ -190,7 +183,7 @@ class TranscribeJob {
       },
     });
 
-    // StringDecoder via setEncoding: avoid splitting multibyte UTF-8 (JP text / JSON)
+    // StringDecoder via setEncoding: avoid splitting multibyte UTF-8
     // across data chunk boundaries (toString per Buffer is unsafe).
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (data) => {
@@ -199,9 +192,7 @@ class TranscribeJob {
 
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (data) => {
-      const line = `[${getNow()}:Whisper]${data}`;
-      console.log(line);
-      this.sendCommandOutput(line);
+      this.sendCommandOutput(`[${getNow()}:Whisper]${data}`);
     });
 
     child.on("error", (err) => {
@@ -211,7 +202,6 @@ class TranscribeJob {
     });
 
     child.on("close", (code) => {
-      // flush incomplete buffer as log
       if (ctx.stdoutBuf && ctx.stdoutBuf.length) {
         this.#handleWhisperLine(ctx, ctx.stdoutBuf);
         ctx.stdoutBuf = "";
@@ -227,7 +217,7 @@ class TranscribeJob {
         safeDeleteFile(job.tempCSV);
         return;
       }
-      console.log(`[${getNow()}:Whisper]child process exited with code ${code}`);
+      devLog(`[Whisper]child process exited with code ${code}`);
       this.sendCommandOutput(
         `[${getNow()}:Whisper]文字起こしが完了しました (${ctx.metrics.tWhisper.toFixed(2)}s)`
       );
@@ -261,7 +251,7 @@ class TranscribeJob {
     }
 
     const out = `[${getNow()}:Whisper]${line}\n`;
-    console.log(out.trimEnd());
+    devLog(out.trimEnd());
     this.sendCommandOutput(out);
   }
 
@@ -276,7 +266,7 @@ class TranscribeJob {
         infer: "推論中",
         write: "CSV 書き出し",
       };
-      // Map python phases into overall job % bands (ffmpeg used 0–2)
+      // Map python phases into overall job % bands (ffmpeg used 0 to 2)
       let pct = 5;
       if (phase === "load") pct = 4;
       else if (phase === "transcribe_setup") pct = 8;
@@ -294,22 +284,28 @@ class TranscribeJob {
         duration_after_vad: evt.duration_after_vad,
       });
 
+      // M5: cache duration in a local var so the same value is used
+      // in both the existence check and the formatted output, and we
+      // do not re-evaluate Number() on the same value.
       if (evt.duration != null) {
+        const dur = Number(evt.duration).toFixed(2);
+        const afterVad =
+          evt.duration_after_vad != null
+            ? ` after_vad=${Number(evt.duration_after_vad).toFixed(2)}s`
+            : "";
+        const tLoad =
+          evt.t_load_sec != null
+            ? ` t_load=${Number(evt.t_load_sec).toFixed(2)}s`
+            : "";
         this.sendCommandOutput(
-          `[${getNow()}:Whisper]phase=${phase}` +
-            (evt.duration != null ? ` duration=${Number(evt.duration).toFixed(2)}s` : "") +
-            (evt.duration_after_vad != null
-              ? ` after_vad=${Number(evt.duration_after_vad).toFixed(2)}s`
-              : "") +
-            (evt.t_load_sec != null ? ` t_load=${Number(evt.t_load_sec).toFixed(2)}s` : "") +
-            "\n"
+          `[${getNow()}:Whisper]phase=${phase} duration=${dur}s${afterVad}${tLoad}\n`
         );
       }
       return;
     }
 
     if (evt.type === "progress") {
-      // Reserve 10–95% of the bar for inference audio progress
+      // Reserve 10 to 95 percent of the bar for inference audio progress
       const audioPct = Math.max(0, Math.min(100, Number(evt.pct) || 0));
       const jobPct = 10 + (audioPct / 100) * 85;
       this.#emit({
@@ -366,7 +362,9 @@ class TranscribeJob {
 
   #runAdjustment(ctx) {
     const { inputPath, job } = ctx;
-    const outFile = `${inputPath}_[${getNow(true)}].csv`;
+    // M3: use plain '-' instead of '[brackets]' for friendlier filenames.
+    // New form: input_YYYY-MM-DD_HH-MM-SS.csv
+    const outFile = `${inputPath}_${getNow(true)}.csv`;
 
     this.#emit({
       type: "phase",

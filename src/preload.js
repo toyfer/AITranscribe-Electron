@@ -12,6 +12,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 const DIALOG_OPEN_FILE = "dialog:openFile";
 const DIALOG_OPEN_CSV = "dialog:openCsv";
 const DIALOG_SAVE_DOCX = "dialog:saveDocx";
+const LIST_LLMS = "llm:listModels";
 const EXECUTE_RUN_FFMPEG = "execute:runFFmpeg";
 const EXECUTE_RUN_WHISPER = "execute:runWhisper";
 const EXECUTE_RUN_SUMMARIZE = "execute:runSummarize";
@@ -27,6 +28,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   openCsv: () => ipcRenderer.invoke(DIALOG_OPEN_CSV),
   /** Open save-as dialog for .docx output. */
   saveDocx: (defaultName) => ipcRenderer.invoke(DIALOG_SAVE_DOCX, defaultName),
+  /** List available GGUF models. Returns [{ name, path, sizeMB }]. */
+  listLlms: () => ipcRenderer.invoke(LIST_LLMS),
   runFFmpeg: (args) => ipcRenderer.send(EXECUTE_RUN_FFMPEG, args),
   // main 内で FFmpeg 完了後に Whisper へ進むため、renderer からは未使用
   runWhisper: (args) => ipcRenderer.send(EXECUTE_RUN_WHISPER, args),

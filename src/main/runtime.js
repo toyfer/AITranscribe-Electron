@@ -67,10 +67,41 @@ class RuntimeLayout {
     }
     if (ggufPaths.length === 0) {
       llamaMissing.push(
-        "Whisper/models/llm/*.gguf (Qwen3-0.6B GGUF Q4_K_M 推奨・手動配置・要約機能を使う場合に必要)"
+        "Whisper/models/llm/*.gguf (Qwen3.5-0.8B GGUF Q4_K_M 推奨・手動配置・要約機能を使う場合に必要)"
       );
     }
     return { ffmpegPath, pythonPath, llamaCliPath, ggufPaths, missing, llamaMissing };
+  }
+
+  /**
+   * List all GGUF models under Whisper/models/llm/ with metadata.
+   * (Currently only Qwen3.5-0.8B is supported; the list is kept for
+   * future expansion and diagnostic purposes.)
+   * @returns {Array<{ name: string, path: string, sizeMB: number }>}
+   */
+  listGgufModels() {
+    const ggufDir = this.resolveBundledPath("models", "llm");
+    const models = [];
+    if (!fs.existsSync(ggufDir)) return models;
+    for (const name of fs.readdirSync(ggufDir)) {
+      if (!name.toLowerCase().endsWith(".gguf")) continue;
+      const fullPath = path.join(ggufDir, name);
+      try {
+        const stat = fs.statSync(fullPath);
+        // Skip directories or symlinks that happen to have .gguf extension
+        if (!stat.isFile()) continue;
+        models.push({
+          name,
+          path: fullPath,
+          sizeMB: Math.round(stat.size / (1024 * 1024)),
+        });
+      } catch (_) {
+        // skip unreadable files
+      }
+    }
+    // Sort by size ascending (smaller models first = faster inference)
+    models.sort((a, b) => a.sizeMB - b.sizeMB);
+    return models;
   }
 
   /**

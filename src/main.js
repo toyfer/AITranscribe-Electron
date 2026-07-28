@@ -8,7 +8,7 @@ const { SummarizeJob } = require("./main/jobs/summarize");
 const { getNow } = require("./main/utils/time");
 
 // エアギャップ配布想定: FFmpeg / Python Embeddable / Faster-Whisper モデルは
-// リポジトリに含めず、実行時に src/Whisper 配下へ配置する（README 参照）
+// リポジトリに含めず、実行時に src/Whisper 配下に配置する（README 参照）
 // llama-cli / GGUF モデルも同様（手動配置・要約機能を使う場合のみ必要）
 
 let mainWindow;
@@ -17,12 +17,12 @@ const runtime = new RuntimeLayout(__dirname);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    // 固定サイズ: リサイズによる UI 崩れを防ぐ
-    // ログ・進捗が伸びてもウィンドウ内に収まるサイズに設計
-    width: 800,
-    height: 720,
-    minWidth: 600,
-    minHeight: 540,
+    // ワイドサイズ: ログ・パラメータが窮屈にならない幅を確保
+    // 文字起こし / 要約 / パラメータ / 進捗 / ログを1画面で表示
+    width: 1280,
+    height: 800,
+    minWidth: 960,
+    minHeight: 640,
     resizable: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -80,7 +80,7 @@ const transcribeJob = new TranscribeJob({
 
 const summarizeJob = new SummarizeJob({
   runtime,
-  sendProcessMessage,
+  sendProcessMessage: sendProcessMessage,
   sendLog: sendSummaryLog,
   sendProgress: sendSummaryProgress,
 });
@@ -90,6 +90,7 @@ app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.DIALOG_OPEN_FILE, handleFileOpen);
   ipcMain.handle(CHANNELS.DIALOG_OPEN_CSV, handleCsvOpen);
   ipcMain.handle(CHANNELS.DIALOG_SAVE_DOCX, handleDocxSave);
+  ipcMain.handle(CHANNELS.LIST_LLMS, handleListLlms);
   ipcMain.on(CHANNELS.EXECUTE_RUN_FFMPEG, (event, args) => {
     transcribeJob.start(event, args);
   });
@@ -183,4 +184,13 @@ async function handleDocxSave(_event, defaultName) {
   let p = result.filePath;
   if (!/\.docx$/i.test(p)) p += ".docx";
   return p;
+}
+
+/**
+ * List all GGUF models under Whisper/models/llm/.
+ * Returns [{ name, path, sizeMB }] for the model selector dropdown.
+ * @param {_event} _event - IPC event object (unused but required by ipcMain.handle signature)
+ */
+function handleListLlms(_event) {
+  return runtime.listGgufModels();
 }

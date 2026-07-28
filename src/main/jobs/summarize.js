@@ -5,8 +5,13 @@ const path = require("path");
 const AIT_PREFIX = "__AIT__";
 
 const DEFAULT_CTX_SIZE = 4096;
+const DEFAULT_MAX_TOKENS = 1024;
+const DEFAULT_TEMPERATURE = 0.4;
 const INFERENCE_TIMEOUT_MS = 5 * 60 * 1000;
-const THINKING_BLOCK_RE = /\[Start thinking\][\s\S]*?\[End thinking\]/g;
+// Qwen3.x uses <think>...</think> tags for reasoning blocks.
+// See: https://hf.co/unsloth/Qwen3.5-0.8B-GGUF
+// Non-greedy match: shortest possible block.
+const THINKING_BLOCK_RE = /<think>[\s\S]*?<\/think>/g;
 const BANNER_RE = /^[▄█\s]+|build\s+:|model\s+:|ftype\s+:|modalities\s+:|available commands:|\/exit|\/regen|\/clear|\/read|\/glob|Loading model/i;
 
 const stateMap = new WeakMap();
@@ -33,8 +38,38 @@ class SummarizeJob {
       typeof sendProgress === "function" ? sendProgress : () => {};
   }
 
+  /**
+   * Pick the best GGUF model from ggufPaths.
+   * Preference (higher score wins, ties broken by smaller file):
+   *   4. filename matches "qwen3.5-0.8b"
+   *   3. filename matches "qwen3.5"
+   *   2. filename matches "qwen3"
+   *   1. anything else
+   * Without this, the choice depends on fs.readdirSync() ordering
+   * which is filesystem-dependent (NTFS sorts, ext4 may not).
+   * @param {string[]} ggufPaths
+   * @returns {string|null}
+   */
+  pickModel(ggufPaths) {
+    if (!ggufPaths || ggufPaths.length === 0) return null;
+    if (ggufPaths.length === 1) return ggufPaths[0];
+    const scoreAndSize = (p) => {
+      const name = path.basename(p).toLowerCase();
+      let score = 1;
+      if (name.includes("qwen3.5-0.8b")) score = 4;
+      else if (name.includes("qwen3.5")) score = 3;
+      else if (name.includes("qwen3")) score = 2;
+      let sizeMB = Infinity;
+      try { sizeMB = fs.statSync(p).size / (1024 * 1024); } catch (_) {}
+      return { p, score, sizeMB };
+    };
+    const ranked = ggufPaths
+      .map(scoreAndSize)
+      .sort((a, b) => (b.score - a.score) || (a.sizeMB - b.sizeMB));
+    return ranked[0].p;
+  }
+
   async start(_event, args) {
-    // Reset state to prevent accumulation across consecutive runs
     resetState(this);
 
     const csvPath = args && args.csvPath;
@@ -62,14 +97,11 @@ class SummarizeJob {
     if (ggufPaths.length === 0) {
       this.sendProcessMessage(
         `[${this.ts()}:System]GGUF モデルが見つかりません。\n` +
-          "Whisper/models/llm/ 配下に Qwen3-0.6B GGUF Q4_K_M などを手動配置してください。"
+          "Whisper/models/llm/ 配下に Qwen3.5-0.8B GGUF Q4_K_M などを手動配置してください。"
       );
       return;
     }
-    const modelPath =
-      options.modelPath && fs.existsSync(options.modelPath)
-        ? options.modelPath
-        : ggufPaths[0];
+    const modelPath = this.pickModel(ggufPaths);
 
     let csvText;
     try {
@@ -82,12 +114,19 @@ class SummarizeJob {
     }
 
     const prompt = this.buildPrompt(csvText, type);
-    const maxTokens = options.maxTokens || 1024;
+    const maxTokens = options.maxTokens || DEFAULT_MAX_TOKENS;
     const ctxSize = options.ctxSize || DEFAULT_CTX_SIZE;
-    const temperature = options.temperature || 0.4;
+    const temperature = options.temperature != null ? options.temperature : DEFAULT_TEMPERATURE;
+
+    const modelName = path.basename(modelPath);
+    this.sendLog(`[${this.ts()}:System]モデル: ${modelName} (${ctxSize} ctx, ${maxTokens} tokens, temp ${temperature})\n`);
 
     this.emit({ type: "phase", phase: "load", label: "モデル読込中", pct: 0, mode: "indeterminate" });
 
+    // -no-cnv disables conversation mode so llama-cli exits after the
+    // single text completion instead of entering interactive mode.
+    // --single-turn was previously added redundantly; the official README
+    // documents -no-cnv as the canonical flag.
     const llamaArgs = [
       "-m", modelPath,
       "-p", prompt,
@@ -96,18 +135,18 @@ class SummarizeJob {
       "--temp", String(temperature),
       "--no-display-prompt",
       "--log-disable",
-      "--single-turn",
+      "-no-cnv",
     ];
 
     const t0 = Date.now();
     const child = spawn(llamaCliPath, llamaArgs, { windowsHide: true });
     this.child = child;
 
-    // Close stdin immediately to prevent llama-cli from entering interactive mode
     try { child.stdin.end(); } catch (_) {}
 
     const stdoutBuf = { value: "" };
     let timedOut = false;
+    let errored = false;
 
     const timeoutHandle = setTimeout(() => {
       if (!child.killed && child.exitCode === null) {
@@ -133,7 +172,6 @@ class SummarizeJob {
 
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk) => {
-      // Filter out llama-cli banner/logo lines from stderr
       const lines = chunk.split(/\r?\n/);
       const filtered = lines
         .filter((line) => !BANNER_RE.test(line.trim()))
@@ -144,17 +182,26 @@ class SummarizeJob {
     });
 
     child.on("error", (err) => {
+      // B1: clear the timeout so it doesn't fire after the process has
+      // already failed. Emit 'complete' so the progress bar is reset.
+      clearTimeout(timeoutHandle);
+      errored = true;
       this.sendProcessMessage(
         `[${this.ts()}:llama]起動に失敗しました: ${err.message}`
       );
+      this.emit({ type: "complete", pct: 0, ok: false });
     });
 
     child.on("close", async (code) => {
       clearTimeout(timeoutHandle);
+      // B2: removed unused `flush: true` flag.
       if (stdoutBuf.value.length) {
-        this.handleStdoutLine({ value: stdoutBuf.value, flush: true });
+        this.handleStdoutLine({ value: stdoutBuf.value });
         stdoutBuf.value = "";
       }
+      // B1 follow-up: 'close' may still fire after 'error'; skip if so.
+      if (errored) return;
+
       let summaryText = (getState(this).accumulated || "").trim();
       const tTotal = (Date.now() - t0) / 1000;
 
@@ -165,7 +212,6 @@ class SummarizeJob {
         return;
       }
 
-      // Remove thinking blocks and trim
       summaryText = summaryText.replace(THINKING_BLOCK_RE, "").trim();
 
       if (!summaryText) {
@@ -255,36 +301,32 @@ class SummarizeJob {
     const chunk = buf.value;
     buf.value = "";
 
-    // Accumulate ALL text (including thinking blocks) for final docx
     state.accumulated = (state.accumulated || "") + chunk;
-
-    // For streaming display, filter out thinking blocks
     state.displayBuffer = (state.displayBuffer || "") + chunk;
 
     if (state.inThinkingBlock) {
-      const endIdx = state.displayBuffer.indexOf("[End thinking]");
+      const endIdx = state.displayBuffer.indexOf("</think>");
       if (endIdx !== -1) {
         state.inThinkingBlock = false;
-        state.displayBuffer = state.displayBuffer.slice(endIdx + "[End thinking]".length);
+        state.displayBuffer = state.displayBuffer.slice(endIdx + "</think>".length);
       } else {
         return;
       }
     }
 
-    const startIdx = state.displayBuffer.indexOf("[Start thinking]");
+    const startIdx = state.displayBuffer.indexOf("<think>");
     if (startIdx !== -1) {
       const before = state.displayBuffer.slice(0, startIdx);
-      const after = state.displayBuffer.slice(startIdx + "[Start thinking]".length);
-      const endIdx = after.indexOf("[End thinking]");
+      const after = state.displayBuffer.slice(startIdx + "<think>".length);
+      const endIdx = after.indexOf("</think>");
       if (endIdx !== -1) {
-        state.displayBuffer = before + after.slice(endIdx + "[End thinking]".length);
+        state.displayBuffer = before + after.slice(endIdx + "</think>".length);
       } else {
         state.inThinkingBlock = true;
         state.displayBuffer = before;
       }
     }
 
-    // Send filtered text to log (no [推論中] prefix — just the raw text)
     if (state.displayBuffer) {
       this.sendLog(state.displayBuffer);
       state.displayBuffer = "";
