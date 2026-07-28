@@ -5,7 +5,9 @@
  * Local CTranslate2 dirs under src/Whisper/models/<dir>/ — see docs/models.md.
  * Progress: measured events (process:Progress); mul is cold-start fallback only.
  * Summarize: CSV -> LLM -> docx via process:Summary / return:Summary.
- * Model selector: listLlms() populates dropdown for GGUF model selection.
+ *
+ * Summarize model: Qwen3.5-0.8B is hard-coded; main process auto-detects
+ * the GGUF under Whisper/models/llm/. User no longer picks the model.
  */
 
 /**
@@ -59,11 +61,7 @@ class UIController {
     this.logButtons = document.querySelectorAll("button[data-log-tab]");
     this.logPanes = document.querySelectorAll("[data-log-pane]");
 
-    // LLM model selector elements
-    this.llmModelSelect = document.getElementById("llm-model-select");
-    this.llmModelInfo = document.getElementById("llm-model-info");
-
-    // Parameter input elements
+    // Parameter input elements (Qwen3.5-0.8B model is fixed, no selector)
     this.paramCtx = document.getElementById("param-ctx");
     this.paramTokens = document.getElementById("param-tokens");
     this.paramTemp = document.getElementById("param-temp");
@@ -80,9 +78,6 @@ class UIController {
     /** Full CSV path for summarization. */
     this.fullCsvPath = "";
 
-    /** Available GGUF models from main process. */
-    this.llmModels = [];
-
     if (!window.electronAPI) {
       const msg =
         "[System] preload が読み込めていません（window.electronAPI が未定義）。" +
@@ -98,7 +93,6 @@ class UIController {
     this.#populateModelButtons();
     this.#bindEvents();
     this.#bindIpc();
-    this.#loadLlmModels();
   }
 
   #populateModelButtons() {
@@ -141,74 +135,17 @@ class UIController {
   }
 
   /**
-   * Fetch available GGUF models from main process and populate the dropdown.
-   */
-  async #loadLlmModels() {
-    if (!this.llmModelSelect) return;
-    if (typeof window.electronAPI.listLlms !== "function") return;
-
-    try {
-      const models = await window.electronAPI.listLlms();
-      this.llmModels = Array.isArray(models) ? models : [];
-
-      // Clear placeholder
-      this.llmModelSelect.innerHTML = "";
-
-      if (this.llmModels.length === 0) {
-        const opt = document.createElement("option");
-        opt.value = "";
-        opt.textContent = "モデルが見つかりません";
-        this.llmModelSelect.appendChild(opt);
-        this.llmModelSelect.disabled = true;
-        if (this.llmModelInfo) {
-          this.llmModelInfo.textContent =
-            "Whisper/models/llm/ にGGUFモデルを配置してください";
-        }
-        return;
-      }
-
-      this.llmModelSelect.disabled = false;
-      for (const model of this.llmModels) {
-        const opt = document.createElement("option");
-        opt.value = model.path;
-        opt.textContent = `${model.name} (${model.sizeMB} MB)`;
-        this.llmModelSelect.appendChild(opt);
-      }
-
-      // Select first model by default
-      this.llmModelSelect.value = this.llmModels[0].path;
-
-      if (this.llmModelInfo) {
-        const count = this.llmModels.length;
-        const totalMB = this.llmModels.reduce((sum, m) => sum + m.sizeMB, 0);
-        this.llmModelInfo.textContent =
-          `${count} モデル利用可能 (合計 ${totalMB} MB)`;
-      }
-    } catch (err) {
-      console.error("listLlms failed:", err);
-      this.llmModelSelect.innerHTML = "";
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent = "モデル一覧取得エラー";
-      this.llmModelSelect.appendChild(opt);
-      this.llmModelSelect.disabled = true;
-      if (this.llmModelInfo) {
-        this.llmModelInfo.textContent = `エラー: ${err.message || err}`;
-      }
-    }
-  }
-
-  /**
    * Read parameter values from the UI inputs with validation.
-   * @returns {{ ctxSize: number, maxTokens: number, temperature: number, modelPath: string }}
+   * Model is hard-coded to Qwen3.5-0.8B in main process; renderer
+   * does not pass modelPath (SummarizeJob auto-picks the GGUF).
+   * @returns {{ ctxSize: number, maxTokens: number, temperature: number }}
    */
   #getSummarizeOptions() {
     const ctxSize = Math.max(512, Math.min(32768, parseInt(this.paramCtx?.value, 10) || 4096));
     const maxTokens = Math.max(128, Math.min(8192, parseInt(this.paramTokens?.value, 10) || 1024));
     const temperature = Math.max(0, Math.min(2, parseFloat(this.paramTemp?.value) || 0.4));
-    const modelPath = this.llmModelSelect?.value || "";
 
-    return { ctxSize, maxTokens, temperature, modelPath };
+    return { ctxSize, maxTokens, temperature };
   }
 
   #bindEvents() {
@@ -356,8 +293,7 @@ class UIController {
     if (this.csvSelectButton) this.csvSelectButton.disabled = isBusy;
     if (this.csvClearButton) this.csvClearButton.disabled = isBusy;
     for (const btn of this.summaryTypeButtons) btn.disabled = isBusy;
-    // Disable model selector and parameter inputs during inference
-    if (this.llmModelSelect) this.llmModelSelect.disabled = isBusy;
+    // Disable parameter inputs during inference
     if (this.paramCtx) this.paramCtx.disabled = isBusy;
     if (this.paramTokens) this.paramTokens.disabled = isBusy;
     if (this.paramTemp) this.paramTemp.disabled = isBusy;
@@ -421,7 +357,7 @@ class UIController {
     }
     if (!outputPath) return;
 
-    // Read model and parameters from UI
+    // Read parameters from UI (model is fixed to Qwen3.5-0.8B)
     const options = this.#getSummarizeOptions();
 
     this.setSummarizeUiBusy(true);
