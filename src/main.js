@@ -17,12 +17,12 @@ const runtime = new RuntimeLayout(__dirname);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    // 固定サイズ: リサイズによる UI 崩れを防ぐ
-    // ログ・進捗が伸びてもウィンドウ内に収まるサイズに設計
-    width: 800,
-    height: 720,
-    minWidth: 600,
-    minHeight: 540,
+    // ワイドサイズ: ログ・パラメータが窮屈にならない幅を確保
+    // 文字起こし / 要約 / パラメータ / 進捗 / ログを1画面で表示
+    width: 1280,
+    height: 800,
+    minWidth: 960,
+    minHeight: 640,
     resizable: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
