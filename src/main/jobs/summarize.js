@@ -7,6 +7,7 @@ const AIT_PREFIX = "__AIT__";
 const DEFAULT_CTX_SIZE = 4096;
 const INFERENCE_TIMEOUT_MS = 5 * 60 * 1000;
 const THINKING_BLOCK_RE = /\[Start thinking\][\s\S]*?\[End thinking\]/g;
+const BANNER_RE = /^[▄█\s]+|build\s+:|model\s+:|ftype\s+:|modalities\s+:|available commands:|\/exit|\/regen|\/clear|\/read|\/glob|Loading model/i;
 
 const stateMap = new WeakMap();
 
@@ -19,6 +20,10 @@ function getState(self) {
   return s;
 }
 
+function resetState(self) {
+  stateMap.set(self, { accumulated: "", displayBuffer: "", inThinkingBlock: false });
+}
+
 class SummarizeJob {
   constructor({ runtime, sendProcessMessage, sendLog, sendProgress }) {
     this.runtime = runtime;
@@ -29,6 +34,9 @@ class SummarizeJob {
   }
 
   async start(_event, args) {
+    // Reset state to prevent accumulation across consecutive runs
+    resetState(this);
+
     const csvPath = args && args.csvPath;
     const outputPath = args && args.outputPath;
     const type = (args && args.type) || "bullets";
@@ -45,20 +53,31 @@ class SummarizeJob {
 
     const { llamaCliPath, ggufPaths } = this.runtime.checkRuntimeLayout();
     if (!fs.existsSync(llamaCliPath)) {
-      this.sendProcessMessage(`[${this.ts()}:System]llama-cli.exe が見つかりません: ${llamaCliPath}\nWhisper/ 配下に llama-cli.exe を手動配置してください (https://github.com/ggerganov/llama.cpp).`);
+      this.sendProcessMessage(
+        `[${this.ts()}:System]llama-cli.exe が見つかりません: ${llamaCliPath}\n` +
+          "Whisper/ 配下に llama-cli.exe を手動配置してください (https://github.com/ggerganov/llama.cpp)."
+      );
       return;
     }
     if (ggufPaths.length === 0) {
-      this.sendProcessMessage(`[${this.ts()}:System]GGUF モデルが見つかりません。\nWhisper/models/llm/ 配下に Qwen3-0.6B GGUF Q4_K_M などを手動配置してください。`);
+      this.sendProcessMessage(
+        `[${this.ts()}:System]GGUF モデルが見つかりません。\n` +
+          "Whisper/models/llm/ 配下に Qwen3-0.6B GGUF Q4_K_M などを手動配置してください。"
+      );
       return;
     }
-    const modelPath = options.modelPath && fs.existsSync(options.modelPath) ? options.modelPath : ggufPaths[0];
+    const modelPath =
+      options.modelPath && fs.existsSync(options.modelPath)
+        ? options.modelPath
+        : ggufPaths[0];
 
     let csvText;
     try {
       csvText = fs.readFileSync(csvPath, "utf8");
     } catch (err) {
-      this.sendProcessMessage(`[${this.ts()}:System]CSV 読み込み失敗: ${err.message}`);
+      this.sendProcessMessage(
+        `[${this.ts()}:System]CSV 読み込み失敗: ${err.message}`
+      );
       return;
     }
 
@@ -94,8 +113,12 @@ class SummarizeJob {
       if (!child.killed && child.exitCode === null) {
         timedOut = true;
         child.kill();
-        this.sendProcessMessage(`[${this.ts()}:System]タイムアウト: ${INFERENCE_TIMEOUT_MS / 1000}秒以内に応答がありませんでした。ctx サイズが小さすぎるか、モデルが大きすぎる可能性があります。`);
-        this.sendLog(`[${this.ts()}:System]タイムアウト: llama-cli を強制終了します。\nヒント: 短いCSVで試すか、ctx 4096 を見直してください。\n`);
+        this.sendProcessMessage(
+          `[${this.ts()}:System]タイムアウト: ${INFERENCE_TIMEOUT_MS / 1000}秒以内に応答がありませんでした。ctx サイズが小さすぎるか、モデルが大きすぎる可能性があります。`
+        );
+        this.sendLog(
+          `[${this.ts()}:System]タイムアウト: llama-cli を強制終了します。\nヒント: 短いCSVで試すか、ctx 4096 を見直してください。\n`
+        );
         this.emit({ type: "complete", pct: 0, ok: false });
       }
     }, INFERENCE_TIMEOUT_MS);
@@ -110,11 +133,20 @@ class SummarizeJob {
 
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk) => {
-      this.sendLog(`[${this.ts()}:llama]${chunk}`);
+      // Filter out llama-cli banner/logo lines from stderr
+      const lines = chunk.split(/\r?\n/);
+      const filtered = lines
+        .filter((line) => !BANNER_RE.test(line.trim()))
+        .join("\n");
+      if (filtered.trim()) {
+        this.sendLog(`[${this.ts()}:llama]${filtered}`);
+      }
     });
 
     child.on("error", (err) => {
-      this.sendProcessMessage(`[${this.ts()}:llama]起動に失敗しました: ${err.message}`);
+      this.sendProcessMessage(
+        `[${this.ts()}:llama]起動に失敗しました: ${err.message}`
+      );
     });
 
     child.on("close", async (code) => {
@@ -133,25 +165,37 @@ class SummarizeJob {
         return;
       }
 
+      // Remove thinking blocks and trim
       summaryText = summaryText.replace(THINKING_BLOCK_RE, "").trim();
 
       if (!summaryText) {
-        this.sendProcessMessage(`[${this.ts()}:llama]出力が空でした。モデルが配置されているか、ctx サイズが十分か確認してください。`);
+        this.sendProcessMessage(
+          `[${this.ts()}:llama]出力が空でした。モデルが配置されているか、ctx サイズが十分か確認してください。`
+        );
         this.emit({ type: "complete", pct: 0, ok: false });
         return;
       }
 
       this.emit({ type: "phase", phase: "save", label: "docx 書き出し中", pct: 95, mode: "indeterminate" });
       try {
-        await this.writeDocx({ outputPath, summaryText, type, csvPath });
+        await this.writeDocx({ outputPath, summaryText });
       } catch (err) {
-        this.sendProcessMessage(`[${this.ts()}:System]docx 書き出し失敗: ${err.message}`);
+        this.sendProcessMessage(
+          `[${this.ts()}:System]docx 書き出し失敗: ${err.message}`
+        );
         this.emit({ type: "complete", pct: 0, ok: false });
         return;
       }
 
-      this.sendProcessMessage(`[${this.ts()}:System]要約が完了しました\n出力: ${outputPath}\n所要: ${tTotal.toFixed(1)}s`);
-      this.emit({ type: "complete", pct: 100, ok: true, metrics: { t_total_sec: tTotal, output_path: outputPath, type } });
+      this.sendProcessMessage(
+        `[${this.ts()}:System]要約が完了しました\n出力: ${outputPath}\n所要: ${tTotal.toFixed(1)}s`
+      );
+      this.emit({
+        type: "complete",
+        pct: 100,
+        ok: true,
+        metrics: { t_total_sec: tTotal, output_path: outputPath, type },
+      });
     });
   }
 
@@ -167,12 +211,24 @@ class SummarizeJob {
     const text = rows.join("\n");
 
     if (type === "minutes") {
-      return "以下は会議の文字起こしです。日本語で議事録として整形してください。\n出力はMarkdownで、議題ごとに「- 結論」「- 次のアクション」を含めてください。\n発言者が特定できる場合は [発言者] 形式で示してください。\n\n----\n" + text + "\n----";
+      return (
+        "以下は会議の文字起こしです。日本語で議事録として整形してください。\n" +
+        "出力はMarkdownで、議題ごとに「- 結論」「- 次のアクション」を含めてください。\n" +
+        "発言者が特定できる場合は [発言者] 形式で示してください。\n\n" +
+        "----\n" + text + "\n----"
+      );
     }
     if (type === "summary") {
-      return "以下は文字起こしです。日本語で200字程度の要約を作成してください。\n\n----\n" + text + "\n----";
+      return (
+        "以下は文字起こしです。日本語で200字程度の要約を作成してください。\n\n" +
+        "----\n" + text + "\n----"
+      );
     }
-    return "以下は日本語の文字起こしです。要点を箇条書きで要約してください。\n各項目は見出し+1行程度の簡潔な説明にしてください。\n\n----\n" + text + "\n----";
+    return (
+      "以下は日本語の文字起こしです。要点を箇条書きで要約してください。\n" +
+      "各項目は見出し+1行程度の簡潔な説明にしてください。\n\n" +
+      "----\n" + text + "\n----"
+    );
   }
 
   parseCsvLine(line) {
@@ -228,6 +284,7 @@ class SummarizeJob {
       }
     }
 
+    // Send filtered text to log (no [推論中] prefix — just the raw text)
     if (state.displayBuffer) {
       this.sendLog(state.displayBuffer);
       state.displayBuffer = "";
@@ -251,31 +308,51 @@ class SummarizeJob {
     }
   }
 
-  async writeDocx({ outputPath, summaryText, type, csvPath }) {
+  async writeDocx({ outputPath, summaryText }) {
     let docx;
     try {
       docx = require("docx");
     } catch (err) {
-      throw new Error("`docx` パッケージが見つかりません。`npm install docx` を実行してください。 (" + err.message + ")");
+      throw new Error(
+        "`docx` パッケージが見つかりません。`npm install docx` を実行してください。 (" +
+          err.message +
+          ")"
+      );
     }
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docx;
 
     const lines = summaryText.split(/\r?\n/);
     const paragraphs = [];
-    paragraphs.push(new Paragraph({ text: "要約", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.LEFT }));
-    paragraphs.push(new Paragraph({ children: [new TextRun({ text: `種別: ${type}    ソース: ${path.basename(csvPath)}    生成日時: ${new Date().toLocaleString("ja-JP")}`, size: 18, italics: true })] }));
-    paragraphs.push(new Paragraph({ text: "" }));
 
     for (const raw of lines) {
       const line = raw.trimEnd();
-      if (line === "") { paragraphs.push(new Paragraph({ text: "" })); continue; }
-      if (/^##\s+/.test(line)) { paragraphs.push(new Paragraph({ text: line.replace(/^##\s+/, ""), heading: HeadingLevel.HEADING_2 })); }
-      else if (/^#\s+/.test(line)) { paragraphs.push(new Paragraph({ text: line.replace(/^#\s+/, ""), heading: HeadingLevel.HEADING_1 })); }
-      else if (/^-\s+/.test(line)) { paragraphs.push(new Paragraph({ text: line.replace(/^-\s+/, ""), bullet: { level: 0 } })); }
-      else { paragraphs.push(new Paragraph({ children: [new TextRun({ text: line })] })); }
+      if (line === "") {
+        paragraphs.push(new Paragraph({ text: "" }));
+        continue;
+      }
+      if (/^##\s+/.test(line)) {
+        paragraphs.push(
+          new Paragraph({ text: line.replace(/^##\s+/, ""), heading: HeadingLevel.HEADING_2 })
+        );
+      } else if (/^#\s+/.test(line)) {
+        paragraphs.push(
+          new Paragraph({ text: line.replace(/^#\s+/, ""), heading: HeadingLevel.HEADING_1 })
+        );
+      } else if (/^-\s+/.test(line)) {
+        paragraphs.push(
+          new Paragraph({ text: line.replace(/^-\s+/, ""), bullet: { level: 0 } })
+        );
+      } else {
+        paragraphs.push(new Paragraph({ children: [new TextRun({ text: line })] }));
+      }
     }
 
-    const doc = new Document({ creator: "AITranscribe-Electron", title: `要約 (${type}) — ${path.basename(csvPath)}`, description: "Generated by AITranscribe-Electron", sections: [{ children: paragraphs }] });
+    const doc = new Document({
+      creator: "AITranscribe-Electron",
+      title: "要約",
+      sections: [{ children: paragraphs }],
+    });
+
     const buffer = await Packer.toBuffer(doc);
     fs.writeFileSync(outputPath, buffer);
   }
