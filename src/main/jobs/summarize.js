@@ -5,6 +5,8 @@ const path = require("path");
 const AIT_PREFIX = "__AIT__";
 
 const DEFAULT_CTX_SIZE = 4096;
+const DEFAULT_MAX_TOKENS = 1024;
+const DEFAULT_TEMPERATURE = 0.4;
 const INFERENCE_TIMEOUT_MS = 5 * 60 * 1000;
 const THINKING_BLOCK_RE = /\[Start thinking\][\s\S]*?\[End thinking\]/g;
 const BANNER_RE = /^[▄█\s]+|build\s+:|model\s+:|ftype\s+:|modalities\s+:|available commands:|\/exit|\/regen|\/clear|\/read|\/glob|Loading model/i;
@@ -66,6 +68,7 @@ class SummarizeJob {
       );
       return;
     }
+    // Use modelPath from options if provided and valid, otherwise auto-select first
     const modelPath =
       options.modelPath && fs.existsSync(options.modelPath)
         ? options.modelPath
@@ -82,9 +85,13 @@ class SummarizeJob {
     }
 
     const prompt = this.buildPrompt(csvText, type);
-    const maxTokens = options.maxTokens || 1024;
+    const maxTokens = options.maxTokens || DEFAULT_MAX_TOKENS;
     const ctxSize = options.ctxSize || DEFAULT_CTX_SIZE;
-    const temperature = options.temperature || 0.4;
+    const temperature = options.temperature != null ? options.temperature : DEFAULT_TEMPERATURE;
+
+    // Log the selected model and parameters
+    const modelName = path.basename(modelPath);
+    this.sendLog(`[${this.ts()}:System]モデル: ${modelName} (${ctxSize} ctx, ${maxTokens} tokens, temp ${temperature})\n`);
 
     this.emit({ type: "phase", phase: "load", label: "モデル読込中", pct: 0, mode: "indeterminate" });
 
