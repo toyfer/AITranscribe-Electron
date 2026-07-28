@@ -21,7 +21,7 @@
         }
         /* ログを広く使うための調整 */
         .log-card {
-            min-height: 200px;
+            min-height: 220px;
         }
         .log-card textarea {
             font-size: 13px;
@@ -29,11 +29,7 @@
         }
         /* パラメータ入力: コンパクトな幅 */
         .param-input {
-            max-width: 100px;
-        }
-        /* モデルセレクタ: 少し広め */
-        .model-select {
-            max-width: 100%;
+            max-width: 120px;
         }
     </style>
     <title>AI文字起こし</title>
@@ -42,7 +38,7 @@
 <body class="d-flex flex-column min-vh-100">
 
     <header class="border-bottom">
-        <div class="container py-2">
+        <div class="container-fluid py-2">
             <div class="row align-items-center g-2">
                 <div class="col">
                     <h2 id="title-label" class="mb-0 fs-3">AI文字起こし</h2>
@@ -55,121 +51,119 @@
     </header>
 
     <main class="flex-grow-1 overflow-hidden d-flex flex-column">
-        <div class="container py-3 flex-grow-1 d-flex flex-column">
+        <div class="container-fluid py-3 flex-grow-1 d-flex flex-column">
 
             <!-- 文字起こしカード: モデル選択 + ファイル選択 + 実行 -->
             <div class="card mb-3">
                 <div class="card-body">
                     <h5 class="section-title mb-3">文字起こし</h5>
 
-                    <div class="mb-3">
-                        <h6 class="card-title text-muted mb-2">モデルの選択</h6>
-                        <div class="btn-group w-100" role="group" aria-label="モデル選択">
-                            <input type="radio" class="btn-check" name="model" id="model-small" autocomplete="off" value="small">
-                            <label class="btn btn-outline-primary" for="model-small">速度重視</label>
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-3">
+                            <h6 class="card-title text-muted mb-2">モデルの選択</h6>
+                            <div class="btn-group w-100" role="group" aria-label="モデル選択">
+                                <input type="radio" class="btn-check" name="model" id="model-small" autocomplete="off" value="small">
+                                <label class="btn btn-outline-primary" for="model-small">速度重視</label>
 
-                            <input type="radio" class="btn-check" name="model" id="model-turbo" autocomplete="off" value="turbo" checked>
-                            <label class="btn btn-outline-primary" for="model-turbo">精度重視（推奨）</label>
+                                <input type="radio" class="btn-check" name="model" id="model-turbo" autocomplete="off" value="turbo" checked>
+                                <label class="btn btn-outline-primary" for="model-turbo">精度重視（推奨）</label>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="row g-2 align-items-center">
-                        <div class="col-md-7">
-                            <input readonly type="text" class="form-control" id="file-path"
-                                aria-label="選択中の音声ファイル" placeholder="音声ファイルを選択してください">
-                        </div>
-                        <div class="col-md-2 d-grid">
-                            <button type="button" class="btn btn-outline-primary" id="file-select-button">ファイル選択</button>
-                        </div>
-                        <div class="col-md-3 d-grid">
-                            <button type="button" class="btn btn-success" id="run-ffmpeg">
-                                <span aria-hidden="true">▶</span> スタート
-                            </button>
+                        <div class="col-md-9">
+                            <h6 class="card-title text-muted mb-2">音声ファイル</h6>
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-7">
+                                    <input readonly type="text" class="form-control" id="file-path"
+                                        aria-label="選択中の音声ファイル" placeholder="音声ファイルを選択してください">
+                                </div>
+                                <div class="col-md-2 d-grid">
+                                    <button type="button" class="btn btn-outline-primary" id="file-select-button">ファイル選択</button>
+                                </div>
+                                <div class="col-md-3 d-grid">
+                                    <button type="button" class="btn btn-success" id="run-ffmpeg">
+                                        <span aria-hidden="true">▶</span> スタート
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 要約カード: モデル選択 + パラメータ + ファイル選択 + 実行 -->
+            <!-- 要約カード: パラメータ + ファイル選択 + 種別 + 実行 -->
+            <!-- モデル: Qwen3.5-0.8B 固定（試験的に Qwen3-0.6B から移行） -->
             <div class="card mb-3">
                 <div class="card-body">
                     <h5 class="section-title mb-3">要約</h5>
 
-                    <!-- LLMモデル選択 -->
-                    <div class="mb-3">
-                        <h6 class="card-title text-muted mb-2">LLMモデル</h6>
-                        <select class="form-select model-select" id="llm-model-select" aria-label="LLMモデル選択">
-                            <option value="">モデルを読み込み中...</option>
-                        </select>
-                        <div class="form-text" id="llm-model-info">利用可能なGGUFモデルが見つかりません</div>
-                    </div>
+                    <div class="row g-3">
+                        <!-- 要約パラメータ -->
+                        <div class="col-md-6">
+                            <h6 class="card-title text-muted mb-2">パラメータ</h6>
+                            <div class="row g-2 align-items-center">
+                                <div class="col-auto">
+                                    <label for="param-ctx" class="col-form-label col-form-label-sm">ctx size</label>
+                                </div>
+                                <div class="col-auto">
+                                    <input type="number" class="form-control form-control-sm param-input"
+                                        id="param-ctx" value="4096" min="512" max="32768" step="512"
+                                        aria-label="コンテキストサイズ">
+                                </div>
+                                <div class="col-auto">
+                                    <label for="param-tokens" class="col-form-label col-form-label-sm">max tokens</label>
+                                </div>
+                                <div class="col-auto">
+                                    <input type="number" class="form-control form-control-sm param-input"
+                                        id="param-tokens" value="1024" min="128" max="8192" step="128"
+                                        aria-label="最大トークン数">
+                                </div>
+                                <div class="col-auto">
+                                    <label for="param-temp" class="col-form-label col-form-label-sm">temp</label>
+                                </div>
+                                <div class="col-auto">
+                                    <input type="number" class="form-control form-control-sm param-input"
+                                        id="param-temp" value="0.4" min="0" max="2" step="0.1"
+                                        aria-label="温度パラメータ">
+                                </div>
+                            </div>
+                            <div class="form-text">使用モデル: Qwen3.5-0.8B（Qwen3-0.6B から移行）</div>
+                        </div>
 
-                    <!-- 要約パラメータ -->
-                    <div class="mb-3">
-                        <h6 class="card-title text-muted mb-2">パラメータ</h6>
-                        <div class="row g-2 align-items-center">
-                            <div class="col-auto">
-                                <label for="param-ctx" class="col-form-label col-form-label-sm">ctx size</label>
-                            </div>
-                            <div class="col-auto">
-                                <input type="number" class="form-control form-control-sm param-input"
-                                    id="param-ctx" value="4096" min="512" max="32768" step="512"
-                                    aria-label="コンテキストサイズ">
-                            </div>
-                            <div class="col-auto">
-                                <label for="param-tokens" class="col-form-label col-form-label-sm">max tokens</label>
-                            </div>
-                            <div class="col-auto">
-                                <input type="number" class="form-control form-control-sm param-input"
-                                    id="param-tokens" value="1024" min="128" max="8192" step="128"
-                                    aria-label="最大トークン数">
-                            </div>
-                            <div class="col-auto">
-                                <label for="param-temp" class="col-form-label col-form-label-sm">temp</label>
-                            </div>
-                            <div class="col-auto">
-                                <input type="number" class="form-control form-control-sm param-input"
-                                    id="param-temp" value="0.4" min="0" max="2" step="0.1"
-                                    aria-label="温度パラメータ">
+                        <!-- 要約種別 -->
+                        <div class="col-md-6">
+                            <h6 class="card-title text-muted mb-2">要約種別</h6>
+                            <div class="btn-group w-100" role="group" aria-label="要約種別">
+                                <input type="radio" class="btn-check" name="summary-type" id="type-bullets"
+                                    autocomplete="off" value="bullets" checked>
+                                <label class="btn btn-outline-primary" for="type-bullets">箇条書き</label>
+
+                                <input type="radio" class="btn-check" name="summary-type" id="type-minutes"
+                                    autocomplete="off" value="minutes">
+                                <label class="btn btn-outline-primary" for="type-minutes">議事録</label>
+
+                                <input type="radio" class="btn-check" name="summary-type" id="type-summary"
+                                    autocomplete="off" value="summary">
+                                <label class="btn btn-outline-primary" for="type-summary">要約</label>
                             </div>
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <h6 class="card-title text-muted mb-2">CSVファイルの選択</h6>
-                        <div class="row g-2 align-items-center">
-                            <div class="col-md-7">
-                                <input readonly type="text" class="form-control" id="csv-path"
-                                    aria-label="選択中のCSVファイル" placeholder="CSVファイルを選択してください">
-                            </div>
-                            <div class="col-md-2 d-grid">
-                                <button type="button" class="btn btn-outline-primary" id="csv-select-button">ファイル選択</button>
-                            </div>
-                            <div class="col-md-3 d-grid">
-                                <button type="button" class="btn btn-outline-secondary" id="csv-clear-button" title="クリア">×</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <h6 class="card-title text-muted mb-2">要約種別</h6>
-                        <div class="btn-group w-100" role="group" aria-label="要約種別">
-                            <input type="radio" class="btn-check" name="summary-type" id="type-bullets"
-                                autocomplete="off" value="bullets" checked>
-                            <label class="btn btn-outline-primary" for="type-bullets">箇条書き</label>
-
-                            <input type="radio" class="btn-check" name="summary-type" id="type-minutes"
-                                autocomplete="off" value="minutes">
-                            <label class="btn btn-outline-primary" for="type-minutes">議事録</label>
-
-                            <input type="radio" class="btn-check" name="summary-type" id="type-summary"
-                                autocomplete="off" value="summary">
-                            <label class="btn btn-outline-primary" for="type-summary">要約</label>
-                        </div>
-                    </div>
+                    <hr class="my-3">
 
                     <div class="row g-2 align-items-center">
-                        <div class="col-12 d-grid">
+                        <div class="col-md-7">
+                            <h6 class="card-title text-muted mb-2">CSVファイル</h6>
+                            <input readonly type="text" class="form-control" id="csv-path"
+                                aria-label="選択中のCSVファイル" placeholder="CSVファイルを選択してください">
+                        </div>
+                        <div class="col-md-2 d-grid">
+                            <button type="button" class="btn btn-outline-primary" id="csv-select-button">ファイル選択</button>
+                        </div>
+                        <div class="col-md-1 d-grid">
+                            <button type="button" class="btn btn-outline-secondary" id="csv-clear-button" title="クリア">×</button>
+                        </div>
+                        <div class="col-md-2 d-grid">
                             <button type="button" class="btn btn-success" id="run-summarize">
                                 <span aria-hidden="true">▶</span> 要約を実行
                             </button>
@@ -180,7 +174,7 @@
 
             <!-- 進捗カード (両機能共有) -->
             <div class="card progress-card mb-3">
-                <div class="card-body">
+                <div class="card-body py-2">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <h6 class="card-title text-muted mb-0 text-nowrap">進捗</h6>
                         <p class="small text-muted mb-0 flex-grow-1" id="progress-phase" hidden></p>
