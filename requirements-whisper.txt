@@ -5,7 +5,7 @@
 #   .\python.exe -m pip install -r requirements-whisper.txt
 # Then copy the entire src/Whisper folder (with site-packages) to the air-gapped PC.
 #
-# Models (UI v2.4.0):
+# Models (UI v0.1.0):
 #   small → Systran/faster-whisper-small          (速度重視)
 #   turbo → deepdml/faster-whisper-large-v3-turbo-ct2  (精度重視・デフォルト)
 # Runtime must not require network access.
