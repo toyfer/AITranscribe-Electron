@@ -82,7 +82,8 @@ GitHub Release の zip は 2GB 制限のため、以下は**含めません**。
 
 | モデル | 取得元 | ライセンス | Release zip | artifact |
 |--------|--------|------|--------------|----------|
-| Qwen3-0.6B-GGUF (q4_k_m 量子化) | https://huggingface.co/unsloth/Qwen3-0.6B-GGUF | Apache 2.0 | **なし** (2GB 超過) | **あり** |
+| Qwen3.5-0.8B-GGUF (q4_k_m 量子化) | https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF | Apache 2.0 | **なし** (2GB 超過) | **あり** |
+| 代替: Qwen3-0.6B-GGUF | https://huggingface.co/unsloth/Qwen3-0.6B-GGUF | Apache 2.0 | なし | あり |
 | 代替: Qwen3-1.7B-GGUF | https://huggingface.co/unsloth/Qwen3-1.7B-GGUF | Apache 2.0 | なし | あり |
 | 代替: Qwen3-4B-GGUF | https://huggingface.co/unsloth/Qwen3-4B-GGUF | Apache 2.0 | なし | あり |
 
