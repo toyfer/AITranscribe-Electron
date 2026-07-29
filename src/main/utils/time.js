@@ -1,6 +1,11 @@
+const crypto = require("crypto");
+
 /**
  * Timestamp helpers shared by main-process jobs and messaging.
  * Behavior matches the previous getNow / generateRandomString in main.js.
+ *
+ * NOTE: generateRandomString now uses crypto.randomBytes (cryptographically
+ * strong) instead of Math.random(), per security review recommendation.
  */
 
 function getNow(pathFlag = false) {
@@ -19,12 +24,18 @@ function getNow(pathFlag = false) {
   return `${year}-${month}-${date}_${hour}-${min}-${sec}`;
 }
 
+/**
+ * Generate a cryptographically random alphanumeric string.
+ * Uses Node.js crypto.randomBytes (not Math.random) per security review.
+ * @param {number} length - Desired output length
+ * @returns {string}
+ */
 function generateRandomString(length) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const bytes = crypto.randomBytes(length);
   let result = "";
-  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  const charactersLength = characters.length;
   for (let i = 0; i < length; i++) {
-    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    result += chars[bytes[i] % chars.length];
   }
   return result;
 }
