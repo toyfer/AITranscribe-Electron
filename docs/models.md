@@ -107,7 +107,7 @@ https://github.com/ggml-org/llama.cpp/releases
 
 ### 取得方法
 
-```bash
+```powershell
 # 例: b10069
 Invoke-WebRequest -Uri https://github.com/ggml-org/llama.cpp/releases/download/b10069/llama-b10069-bin-win-cpu-x64.zip -Outfile llama.zip
 Expand-Archive .\llama.zip -DestinationPath .\llama
@@ -118,7 +118,7 @@ Copy-Item -Path .\llama\llama-cli.exe -Destination .\src\Whisper\llama-cli.exe
 
 GitHub Releases のチェックサム (SHA256) をダウンロード後に検証:
 
-```bash
+```powershell
 # GitHub UI のリリースページから sha256sum.txt を取得
 $sha = (Get-FileHash .\src\Whisper\llama-cli.exe -Algorithm SHA256).Hash
 Write-Host "llama-cli.exe SHA-256: $sha"
@@ -140,62 +140,50 @@ llama.cpp: **MIT License**。`THIRD_PARTY_NOTICES.md` にも記載。
 
 ### 取得元
 
-- **Qwen3-0.6B Q4_K_M (推奨)**: https://huggingface.co/unsloth/Qwen3-0.6B-GGUF
-  - ファイル: **`Qwen3-0.6B-Q4_K_M.gguf`**
+- **Qwen3.5-0.8B Q4_K_M (推奨)**: https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF
+  - ファイル: **`Qwen3.5-0.8B-Q4_K_M.gguf`**
+  - 取得元 URL: `https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf`
+  - サイズ: ~530MB
+  - アプリの `pickModel` が最優先（スコア4）で選択
+- **Qwen3-0.6B Q4_K_M (代替・軽量)**: https://huggingface.co/unsloth/Qwen3-0.6B-GGUF
+  - ファイル: `Qwen3-0.6B-Q4_K_M.gguf`
   - 取得元 URL: `https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf`
   - サイズ: ~500MB
-- **Qwen3-0.6B Q8_0 (公式 Qwen・より高精度・より重い)**: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
-  - ファイル: `Qwen3-0.6B-Q8_0.gguf`
-  - 取得元 URL: `https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf`
-  - サイズ: 639MB
+  - `pickModel` スコア2（Qwen3 シリーズ）
 - 代替 (より大きいモデル・精度優先):
   - https://huggingface.co/unsloth/Qwen3-1.7B-GGUF
   - https://huggingface.co/unsloth/Qwen3-4B-GGUF
 
-> **注**: 公式 Qwen リポジトリ (`Qwen/Qwen3-0.6B-GGUF`) は **Q8_0 のみ**で、Q4_K_M 版は存在しません。Q4_K_M 版が必要な場合は unsloth ミラーを使います。
+> **注**: `pickModel` はファイル名の小文字比較でスコアリングします。`qwen3.5-0.8b` を含むファイル名が最優先（スコア4）です。複数 GGUF 配置時はスコアとサイズで自動選択されます。詳細は `docs/summarize.md` の「モデル選択（pickModel）」を参照。
 
 ### 取得方法
 
-**Q4_K_M (推奨) — unsloth ミラー**:
+**Q4_K_M (推奨) — Qwen3.5-0.8B**:
 
-```bash
-# PowerShell
-Invoke-WebRequest -Uri https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf -Outfile .\src\Whisper\models\llm\qwen3-0.6b-q4_k_m.gguf
-
-# git clone
-git clone --depth 1 https://huggingface.co/unsloth/Qwen3-0.6B-GGUF
-Copy-Item .\unsloth\Qwen3-0.6B-GGUF\Qwen3-0.6B-Q4_K_M.gguf .\src\Whisper\models\llm\qwen3-0.6b-q4_k_m.gguf
-Remove-Item -Recurse .\unsloth
+```powershell
+# HF CLI
+hf download unsloth/Qwen3.5-0.8B-GGUF --include "Qwen3.5-0.8B-Q4_K_M.gguf" --local-dir src/Whisper/models/llm
+Move-Item src/Whisper/models/llm/Qwen3.5-0.8B-Q4_K_M.gguf src/Whisper/models/llm/qwen3.5-0.8b-q4_k_m.gguf
 ```
 
-**HF CLI 経由**:
+**Q4_K_M (代替) — Qwen3-0.6B**:
 
-```bash
-hf download unsloth/Qwen3-0.6B-GGUF \
-  --include "Qwen3-0.6B-Q4_K_M.gguf" \
-  --local-dir src/Whisper/models/llm
-```
-
-**Q8_0 (公式・より重い)**:
-
-```bash
-hf download Qwen/Qwen3-0.6B-GGUF \
-  --include "Qwen3-0.6B-Q8_0.gguf" \
-  --local-dir src/Whisper/models/llm
-# ファイル名を統一
-Move-Item src/Whisper/models/llm/Qwen3-0.6B-Q8_0.gguf src/Whisper/models/llm/qwen3-0.6b-q4_k_m.gguf
+```powershell
+# HF CLI
+hf download unsloth/Qwen3-0.6B-GGUF --include "Qwen3-0.6B-Q4_K_M.gguf" --local-dir src/Whisper/models/llm
+Move-Item src/Whisper/models/llm/Qwen3-0.6B-Q4_K_M.gguf src/Whisper/models/llm/qwen3-0.6b-q4_k_m.gguf
 ```
 
 ### サイズ目安
 
 | モデル | サイズ |
 |--------|------|
+| Qwen3.5-0.8B Q4_K_M (推奨) | ~530MB |
 | Qwen3-0.6B Q4_K_M | ~500MB |
-| Qwen3-0.6B Q8_0 | 639MB |
 | Qwen3-1.7B Q4_K_M | ~1.1GB |
 | Qwen3-4B Q4_K_M | ~2.4GB |
 
-0.6B がエアギャップ・CPU で実用的なバランス。1.7B / 4B は精度が上がるがメモリ使用量も増える。
+0.6B〜0.8B がエアギャップ・CPU で実用的なバランス。1.7B / 4B は精度が上がるがメモリ使用量も増える。
 
 ### 検証
 
@@ -204,17 +192,16 @@ HuggingFace カードの Files タブで各ファイルの SHA-256 を確認可�
 ### 配置
 
 ```
-src/Whisper/models/llm/qwen3-0.6b-q4_k_m.gguf
+src/Whisper/models/llm/qwen3.5-0.8b-q4_k_m.gguf
 ```
 
-> **注**: アプリ側 (`runtime.js`) は `models/llm/*.gguf` の最初に見つかったファイルを使うので、ファイル名は `qwen3-0.6b-q4_k_m.gguf` に統一することを推奨 (fullbuild の CI もこの名前で取得する)。
-
-複数 GGUF を配置すると、コードは最初に見つかったものを使う。
+> **注**: アプリ側 (`pickModel`) は `models/llm/*.gguf` をスキャンし、名称スコアリングで最適なモデルを自動選択します。複数配置時は `qwen3.5-0.8b` を含むファイル名が最優先されます。
 
 ### ライセンス
 
 | モデル | ライセンス |
 |--------|------|
+| Qwen3.5-0.8B (base) | Apache 2.0 |
 | Qwen3-0.6B (base) | Apache 2.0 |
 | Qwen3 GGUF 変換 | Apache 2.0 (Qwen3 base) |
 
@@ -233,7 +220,7 @@ src/Whisper/
     small/                      (Release zip には含まれず・fullbuild artifact には含まれる)
     turbo/                      (同上)
     llm/
-      qwen3-0.6b-q4_k_m.gguf   (同上)
+      qwen3.5-0.8b-q4_k_m.gguf   (同上)
 ```
 
 | 場所 | 含めるもの |
@@ -264,7 +251,7 @@ src/Whisper/
 起動時ログ:
   [HH:MM:SS:System]要約機能を使うには追加配置が必要:
   - Whisper/llama-cli.exe (llama.cpp 単一バイナリ・手動配置・要約機能を使う場合に必要)
-  - Whisper/models/llm/*.gguf (Qwen3-0.6B GGUF Q4_K_M 推奨・手動配置・要約機能を使う場合に必要)
+  - Whisper/models/llm/*.gguf (Qwen3.5-0.8B GGUF Q4_K_M 推奨・手動配置・要約機能を使う場合に必要)
 ```
 
 両方配置済なら警告なし。どちらか欠けると対応するエラーメッセージのみ。
@@ -299,9 +286,9 @@ Get-ChildItem src/Whisper/models/llm
 ### 要約機能（オプション）
 
 - [ ] `llama-cli.exe` が `src/Whisper/` にある
-- [ ] `qwen3-0.6b-q4_k_m.gguf` (または `*.gguf`) が `src/Whisper/models/llm/` にある
-  - [ ] 推奨: `Qwen3-0.6B-Q4_K_M.gguf` (unsloth ミラー)
-  - [ ] 代替: `Qwen3-0.6B-Q8_0.gguf` (公式 Qwen、Q4_K_M なし)
+- [ ] `qwen3.5-0.8b-q4_k_m.gguf` (または `*.gguf`) が `src/Whisper/models/llm/` にある
+  - [ ] 推奨: `Qwen3.5-0.8B-Q4_K_M.gguf` (unsloth ミラー)
+  - [ ] 代替: `Qwen3-0.6B-Q4_K_M.gguf` (unsloth ミラー・軽量)
 - [ ] 起動時に「要約機能を使うには追加配置が必要」警告が出ない
 
 ### 検証
