@@ -33,6 +33,11 @@
                    └─ .card-body(flex:1 1 0, min-height:0, d-flex.flex-column, p-0)
                         └─ .csv-table-wrapper(flex:1 1 0, min-height:0, overflow-y:auto)
     └─ footer 再生プレイヤー (固定, 常に最下層)
+
+  NOTE: このページは <a href> による同一 BrowserWindow 内の遷移です。
+  遷移中は transcribe ウィンドウの IPC リスナー (return:Command, process:Progress 等) が
+  切断されるため、文字起こし実行中はこのページを開かないでください。
+  要約サポーターと異なり、このページは独立した BrowserWindow ではありません。
 -->
 <body class="d-flex flex-column min-vh-100">
 
@@ -49,6 +54,9 @@
             <div class="row">
                 <div class="col-12">
                     <p class="text-muted small mb-0 mt-1">CSVと音声ファイルを読み込んで、聞きたい箇所のテキストをクリックすると、その時間から音声が再生されます。</p>
+                </div>
+                <div class="col-12">
+                    <p class="text-warning small mb-0 mt-1">⚠ 文字起こし実行中はこのページを開かないでください。進捗ログが表示されなくなります。</p>
                 </div>
             </div>
         </div>
