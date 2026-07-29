@@ -29,7 +29,7 @@ Faster-Whisper を用いて **オフライン（エアギャップ）** で音�
 | faster-whisper | **1.2.1** | |
 | モデル（**UI 既定**） | **large-v3-turbo** | 精度重視 |
 | モデル（速度） | **small** | 速度重視 |
-| LLM（要約機能） | **Qwen3-0.6B** (Q4_K_M GGUF) | CPU推論 |
+| LLM（要約機能） | **Qwen3.5-0.8B** (Q4_K_M GGUF) | CPU推論・`pickModel` で最優先選択 |
 
 ```bash
 npm ci
@@ -56,12 +56,14 @@ git clone --depth 1 https://huggingface.co/deepdml/faster-whisper-large-v3-turbo
 
 必要なランタイム（手動配置）:
 
-```bash
+```text
 src/Whisper/
   llama-cli.exe                    # llama.cpp ビルド済みバイナリ
   models/llm/
-    qwen3-0.6b-q4_k_m.gguf         # Qwen3-0.6B GGUF (Q4_K_M)
+    qwen3.5-0.8b-q4_k_m.gguf      # Qwen3.5-0.8B GGUF (Q4_K_M) — 推奨
 ```
+
+複数の GGUF を配置した場合、`pickModel` が名称スコア（`qwen3.5-0.8b` > `qwen3.5` > `qwen3` > その他）とファイルサイズ（小さい方を優先）で最適なモデルを自動選択します。UI からのモデル選択は現在未対応です。
 
 詳細: [docs/models.md](./docs/models.md) · [docs/summarize.md](./docs/summarize.md)
 
