@@ -61,7 +61,7 @@ GitHub Actions artifact は **容量無制限**（リポジトリの storage quo
 | llama-cli.exe | ~17MB |
 | Whisper モデル (small) | ~460MB |
 | Whisper モデル (turbo) | ~1.5GB |
-| GGUF (Qwen3-0.6B Q4_K_M) | ~450MB |
+| GGUF (Qwen3.5-0.8B Q4_K_M) | ~530MB |
 
 | zip 種別 | 合計サイズ |
 |----------|----------|
@@ -114,7 +114,7 @@ GitHub Actions artifact は **容量無制限**（リポジトリの storage quo
 ### 要約機能（オプション）
 
 - [ ] `llama-cli.exe` が `src/Whisper/` にある
-- [ ] `qwen3-0.6b-q4_k_m.gguf` が `src/Whisper/models/llm/` にある
+- [ ] `qwen3.5-0.8b-q4_k_m.gguf` が `src/Whisper/models/llm/` にある
 - [ ] 起動時に「要約機能を使うには追加配置が必要」警告が出ない
 
 ### 動作確認
