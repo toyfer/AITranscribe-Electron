@@ -13,8 +13,13 @@
 
 const SUMMARY_MSG_REGEX = /要約|llama|GGUF|csvPath|docx|タイムアウト|ctx/;
 
-/** Fallback ETA in seconds for the progress bar (overridden by measured events). */
-const SUMMARIZE_FALLBACK_SEC = 180;
+/**
+ * Fallback ETA in seconds for the progress bar (overridden by measured events).
+ * Matches INFERENCE_TIMEOUT_MS (600s) in src/main/jobs/summarize.js to avoid the
+ * progress bar reaching 92% and stalling for several minutes before the actual
+ * timeout fires.
+ */
+const SUMMARIZE_FALLBACK_SEC = 600;
 
 class SummarizeSuppoterController {
   constructor() {
