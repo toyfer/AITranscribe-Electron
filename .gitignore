@@ -39,6 +39,8 @@ src/Whisper/DLLs/
 src/Whisper/get-pip.py
 src/Whisper/pip/
 src/Whisper/log.csv
+src/Whisper/llama-cli.exe
+src/Whisper/models/llm/
 
 # Model weights (keep directory via .gitkeep only)
 src/Whisper/models/small/
