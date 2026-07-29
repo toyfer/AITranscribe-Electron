@@ -55,7 +55,7 @@ GitHub Release の zip は 2GB 制限のため、以下は**含めません**。
 | faster-whisper | MIT — https://github.com/SYSTRAN/faster-whisper |
 | その他 | 各 PyPI パッケージの LICENSE を参照 |
 
-### 2.4 音声認識モデル（weights）— UI v2.4.0
+### 2.4 音声認識モデル（weights）— UI v0.1.0
 
 | UI / ディレクトリ | 取得元例 | ライセンス目安 | Release zip | artifact |
 |-------------------|----------|----------------|--------------|----------|
@@ -82,9 +82,9 @@ GitHub Release の zip は 2GB 制限のため、以下は**含めません**。
 
 | モデル | 取得元 | ライセンス | Release zip | artifact |
 |--------|--------|------|--------------|----------|
-| Qwen3-0.6B-GGUF (q4_k_m 量子化) | https://huggingface.co/Qwen/Qwen3-0.6B-GGUF | Apache 2.0 | **なし** (2GB 超過) | **あり** |
-| 代替: Qwen3-1.7B-GGUF | https://huggingface.co/Qwen/Qwen3-1.7B-GGUF | Apache 2.0 | なし | あり |
-| 代替: Qwen3-4B-GGUF | https://huggingface.co/Qwen/Qwen3-4B-GGUF | Apache 2.0 | なし | あり |
+| Qwen3-0.6B-GGUF (q4_k_m 量子化) | https://huggingface.co/unsloth/Qwen3-0.6B-GGUF | Apache 2.0 | **なし** (2GB 超過) | **あり** |
+| 代替: Qwen3-1.7B-GGUF | https://huggingface.co/unsloth/Qwen3-1.7B-GGUF | Apache 2.0 | なし | あり |
+| 代替: Qwen3-4B-GGUF | https://huggingface.co/unsloth/Qwen3-4B-GGUF | Apache 2.0 | なし | あり |
 
 Qwen3 のベースモデル（[QwenLM/Qwen3](https://huggingface.co/QwenLM/Qwen3)）も Apache 2.0。
 
