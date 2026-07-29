@@ -150,11 +150,13 @@ llama.cpp: **MIT License**。`THIRD_PARTY_NOTICES.md` にも記載。
   - 取得元 URL: `https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf`
   - サイズ: ~500MB
   - `pickModel` スコア2（Qwen3 シリーズ）
-- 代替 (より大きいモデル・精度優先):
-  - https://huggingface.co/unsloth/Qwen3-1.7B-GGUF
-  - https://huggingface.co/unsloth/Qwen3-4B-GGUF
+- 代替 (より大きいモデル・Qwen3.5 シリーズ・精度優先):
+  - **Qwen3.5-2B GGUF**: https://huggingface.co/unsloth/Qwen3.5-2B-GGUF 
+    - `pickModel` スコア3（qwen3.5 を含む）
+  - **Qwen3.5-4B GGUF**: https://huggingface.co/unsloth/Qwen3.5-4B-GGUF
+    - `pickModel` スコア3（qwen3.5 を含む）
 
-> **注**: `pickModel` はファイル名の小文字比較でスコアリングします。`qwen3.5-0.8b` を含むファイル名が最優先（スコア4）です。複数 GGUF 配置時はスコアとサイズで自動選択されます。詳細は `docs/summarize.md` の「モデル選択（pickModel）」を参照。
+> **注**: `pickModel` はファイル名の小文字比較でスコアリングします。`qwen3.5-0.8b` を含むファイル名が最優先（スコア4）、`qwen3.5` を含むファイル名がスコア3です。複数 GGUF 配置時はスコアとサイズ（小さい方優先）で自動選択されます。詳細は `docs/summarize.md` の「モデル選択（pickModel）」を参照。
 
 ### 取得方法
 
@@ -180,10 +182,10 @@ Move-Item src/Whisper/models/llm/Qwen3-0.6B-Q4_K_M.gguf src/Whisper/models/llm/q
 |--------|------|
 | Qwen3.5-0.8B Q4_K_M (推奨) | ~530MB |
 | Qwen3-0.6B Q4_K_M | ~500MB |
-| Qwen3-1.7B Q4_K_M | ~1.1GB |
-| Qwen3-4B Q4_K_M | ~2.4GB |
+| Qwen3.5-2B Q4_K_M | ~1.2GB |
+| Qwen3.5-4B Q4_K_M | ~2.5GB |
 
-0.6B〜0.8B がエアギャップ・CPU で実用的なバランス。1.7B / 4B は精度が上がるがメモリ使用量も増える。
+0.6B〜0.8B がエアギャップ・CPU で実用的なバランス。2B / 4B は精度が上がるがメモリ使用量も増える。
 
 ### 検証
 
@@ -203,7 +205,7 @@ src/Whisper/models/llm/qwen3.5-0.8b-q4_k_m.gguf
 |--------|------|
 | Qwen3.5-0.8B (base) | Apache 2.0 |
 | Qwen3-0.6B (base) | Apache 2.0 |
-| Qwen3 GGUF 変換 | Apache 2.0 (Qwen3 base) |
+| Qwen3.5 GGUF 変換 | Apache 2.0 (Qwen3.5 base) |
 
 `THIRD_PARTY_NOTICES.md` にも記載。
 
@@ -289,6 +291,7 @@ Get-ChildItem src/Whisper/models/llm
 - [ ] `qwen3.5-0.8b-q4_k_m.gguf` (または `*.gguf`) が `src/Whisper/models/llm/` にある
   - [ ] 推奨: `Qwen3.5-0.8B-Q4_K_M.gguf` (unsloth ミラー)
   - [ ] 代替: `Qwen3-0.6B-Q4_K_M.gguf` (unsloth ミラー・軽量)
+  - [ ] 代替: `Qwen3.5-2B` / `Qwen3.5-4B` (unsloth ミラー・高精度)
 - [ ] 起動時に「要約機能を使うには追加配置が必要」警告が出ない
 
 ### 検証
