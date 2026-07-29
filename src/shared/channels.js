@@ -12,6 +12,11 @@
  * BrowserWindow split: OPEN_SUMMARIZE_WINDOW added for transcribe → summarize
  * window handoff. Per-window routing ensures transcribe events do not
  * leak into the summarize window and vice versa.
+ *
+ * NOTE: EXECUTE_RUN_WHISPER is defined for forward compatibility but is
+ * NOT handled by main.js — Whisper is invoked by TranscribeJob internally
+ * after FFmpeg completes. Calling window.electronAPI.runWhisper() from the
+ * renderer will send a message that no handler listens to (silent no-op).
  */
 const CHANNELS = Object.freeze({
   // renderer → main (invoke / handle)
@@ -30,7 +35,11 @@ const CHANNELS = Object.freeze({
 
   // renderer → main (send / on)
   EXECUTE_RUN_FFMPEG: "execute:runFFmpeg",
-  /** Exposed on preload for compatibility; main runs Whisper after FFmpeg. */
+  /**
+   * UNUSED — defined for forward compatibility only.
+   * Main invokes Whisper internally after FFmpeg completes (see TranscribeJob).
+   * No ipcMain.on() handler exists for this channel.
+   */
   EXECUTE_RUN_WHISPER: "execute:runWhisper",
   /** Start summarize job (CSV → LLM → docx). */
   EXECUTE_RUN_SUMMARIZE: "execute:runSummarize",

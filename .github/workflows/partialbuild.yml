@@ -87,14 +87,14 @@ jobs:
           Expand-Archive -Path llama.zip -DestinationPath llama
           Copy-Item -Path "llama\llama-cli.exe" -Destination "src\Whisper\llama-cli.exe"
 
-      - name: GGUF model (Qwen3-0.6B Q4_K_M via unsloth mirror)
+      - name: GGUF model (Qwen3.5-0.8B Q4_K_M via unsloth mirror)
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path src\Whisper\models\llm
-          hf download unsloth/Qwen3-0.6B-GGUF --include "Qwen3-0.6B-Q4_K_M.gguf" --local-dir src/Whisper/models/llm --quiet
-          $src = "src\Whisper\models\llm\Qwen3-0.6B-Q4_K_M.gguf"
+          hf download unsloth/Qwen3.5-0.8B-GGUF --include "Qwen3.5-0.8B-Q4_K_M.gguf" --local-dir src/Whisper/models/llm --quiet
+          $src = "src\Whisper\models\llm\Qwen3.5-0.8B-Q4_K_M.gguf"
           if (Test-Path $src) {
-            Move-Item -Path $src -Destination "src\Whisper\models\llm\qwen3-0.6b-q4_k_m.gguf"
+            Move-Item -Path $src -Destination "src\Whisper\models\llm\qwen3.5-0.8b-q4_k_m.gguf"
           }
 
       - name: Setup FFmpeg + Embeddable + pinned pip deps
@@ -111,7 +111,7 @@ jobs:
           src\Whisper\python.exe src\Whisper\get-pip.py
           src\Whisper\python.exe -m pip install -U "pip==25.0.1"
           Copy-Item requirements-whisper.txt src\Whisper\requirements-whisper.txt
-          src\Whisper\python.exe -m pip install -r src/Whisper\requirements-whisper.txt
+          src\Whisper\python.exe -m pip install -r src\Whisper\requirements-whisper.txt
 
       - name: Build Electron project for Windows
         run: npm run build_win

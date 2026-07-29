@@ -8,6 +8,10 @@ const { contextBridge, ipcRenderer } = require("electron");
  * file picker and all IPC appear broken.
  *
  * Keep these strings in sync with src/shared/channels.js (main process).
+ *
+ * NOTE: EXECUTE_RUN_WHISPER (runWhisper) is exposed for forward compatibility
+ * but is NOT handled by main.js — see channels.js for details.
+ * Calling window.electronAPI.runWhisper() is a silent no-op.
  */
 const DIALOG_OPEN_FILE = "dialog:openFile";
 const DIALOG_OPEN_CSV = "dialog:openCsv";
@@ -38,7 +42,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
    */
   openSummarizeWindow: () => ipcRenderer.invoke(OPEN_SUMMARIZE_WINDOW),
   runFFmpeg: (args) => ipcRenderer.send(EXECUTE_RUN_FFMPEG, args),
-  // main 内で FFmpeg 完了後に Whisper へ進むため、renderer からは未使用
+  /** UNUSED — no ipcMain handler. Main invokes Whisper after FFmpeg internally. */
   runWhisper: (args) => ipcRenderer.send(EXECUTE_RUN_WHISPER, args),
   /** Start summarize job. args = { csvPath, outputPath, type, options }. */
   runSummarize: (args) => ipcRenderer.send(EXECUTE_RUN_SUMMARIZE, args),
