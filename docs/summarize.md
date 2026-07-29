@@ -34,7 +34,7 @@ Whisper 出力 CSV
 src/Whisper/
   llama-cli.exe    # llama.cpp ビルド済みバイナリ
   models/llm/
-    qwen3-0.6b-q4_k_m.gguf  # 例: Qwen3-0.6B-GGUF
+    qwen3.5-0.8b-q4_k_m.gguf  # 推奨: Qwen3.5-0.8B-GGUF (Q4_K_M)
 ```
 
 ### 取得元（詳細）
@@ -42,25 +42,38 @@ src/Whisper/
 | ファイル | 取得元 | サイズ |
 |----------|--------|------|
 | `llama-cli.exe` | https://github.com/ggml-org/llama.cpp/releases (b10069+ の `llama-b{VERSION}-bin-win-cpu-x64.zip`) | ~17MB |
-| `qwen3-0.6b-q4_k_m.gguf` | https://huggingface.co/unsloth/Qwen3-0.6B-GGUF | ~500MB |
+| `qwen3.5-0.8b-q4_k_m.gguf` | https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF | ~530MB |
 
 ### 取得コマンド例
 
-```bash
-# llama-cli (PowerShell)
+```powershell
+# llama-cli
 Invoke-WebRequest -Uri https://github.com/ggml-org/llama.cpp/releases/download/b10069/llama-b10069-bin-win-cpu-x64.zip -Outfile llama.zip
 Expand-Archive .\llama.zip -DestinationPath .\llama
 Copy-Item -Path .\llama\llama-cli.exe -Destination .\src\Whisper\llama-cli.exe
 
 # GGUF (HF CLI)
-hf download unsloth/Qwen3-0.6B-GGUF --include "Qwen3-0.6B-Q4_K_M.gguf" --local-dir src/Whisper/models/llm
-Move-Item src/Whisper/models/llm/Qwen3-0.6B-Q4_K_M.gguf src/Whisper/models/llm/qwen3-0.6b-q4_k_m.gguf
+hf download unsloth/Qwen3.5-0.8B-GGUF --include "Qwen3.5-0.8B-Q4_K_M.gguf" --local-dir src/Whisper/models/llm
+Move-Item src/Whisper/models/llm/Qwen3.5-0.8B-Q4_K_M.gguf src/Whisper/models/llm/qwen3.5-0.8b-q4_k_m.gguf
 ```
 
 詳細は [`docs/models.md`](./models.md) を参照。
 
 これらが無い状態で「要約を実行」を押すと、メインプロセスが明確なエラーメッセージを返します。
 **文字起こし本体には影響しない** — llama-cli / GGUF が見つからない場合のみ警告を出して無視します。
+
+## モデル選択（pickModel）
+
+複数の GGUF を `models/llm/` に配置した場合、`summarize.js` の `pickModel` が以下の優先順位で自動選択します。UI からのモデル選択は現在未対応です。
+
+| スコア | 条件（ファイル名の小文字比較） | 備考 |
+|--------|--------------------------------|------|
+| 4（最優先） | `qwen3.5-0.8b` を含む | v0.1.0 推奨モデル |
+| 3 | `qwen3.5` を含む | Qwen3.5 シリーズ |
+| 2 | `qwen3` を含む | Qwen3 シリーズ |
+| 1 | その他 | 汎用フォールバック |
+
+同点の場合はファイルサイズが小さい方を優先します。`ggufPaths` が1つの場合はスコアリング不要でそのまま使用します。
 
 ## IPC チャネル
 
@@ -107,7 +120,7 @@ llama-cli の実行には 600秒（10分）のタイムアウトを設定して�
   - fullbuild artifact (容量無制限) には含まれる
 - **NPM `docx` パッケージが必要** — `npm install` で導入（package.json の dependencies に含む）
 - **CPU 推論のみ** — GPU 対応は未実装
-- **複数 GGUF は非対応** — 最初に見つかったものを使用（`pickModel` でスコアリング選択）
+- **UI からの GGUF モデル選択は未対応** — `pickModel` が名称スコアリングで自動選択（複数配置時は最優先のものを使用）
 - **llama-cli の会話モードは無効化** (`-no-cnv` フラグ) — 単一プロンプト後に即座に終了
 
 ## ファイル
