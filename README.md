@@ -81,21 +81,35 @@ npm run build_win
 
 ## リリース
 
+### 成果物の役割分担（重要）
+
+| 置き場 | 中身 | サイズ目安 |
+| --- | --- | --- |
+| **GitHub Release Assets** | アプリ + FFmpeg + Python（**モデルなし** slim） | ~500MB（2GB 未満） |
+| **Actions Artifact `AITranscribe-Electron-full`** | slim + **small/turbo モデル込み**（完全版） | ~2.5GB（90 日） |
+
+GitHub Release は **2GB 制限**があるため、モデル込みは **Artifact のみ**です。
+
 ### 推奨: GitHub Actions から一発
 
 1. [FullBuild workflow](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/fullbuild.yml) を開く
-2. **Run workflow** をクリック
+2. **Run workflow**
 3. Branch: `main`
-4. **tag**: `v0.1.0`（空にするとビルドのみ・Release なし）
-5. **ref**: 空で OK（main の先頭を使う）。特定コミットにしたいときだけ SHA を入れる
-6. 成功すると:
-   - タグ `v0.1.0` が作成される
-   - GitHub Release に zip が添付される
-   - Artifacts に full（モデル込み）も残る
+4. **tag**: `v0.1.0`（空 = ビルドのみ・Release なし）
+5. **ref**: 空で OK
 
-> **なぜ Actions 内でタグを切るか**  
-> `GITHUB_TOKEN` が push したタグは別の workflow を起動しません。  
-> そのため **同じ run の中で** タグ作成 → ビルド → Release 添付まで完結させています。
+成功すると:
+
+- タグが作成される
+- Release に **slim zip**（`*-x64-slim.zip`）が付く
+- Artifacts に **full**（モデル込み）と **slim** が残る
+
+> `GITHUB_TOKEN` が push したタグは別 workflow を起動しないため、同じ run 内でタグ作成 → ビルド → Release まで完結します。
+
+### 再リリース時（タグが既にある場合）
+
+`v0.1.0` が既に存在し HEAD と一致していればタグは再利用されます。  
+別コミットで同じタグを付けたい場合は、先に draft/失敗 Release とタグを削除してから再実行してください。
 
 ### 従来: ローカルからタグ push
 
@@ -103,13 +117,6 @@ npm run build_win
 git tag -a v0.1.0 -m "v0.1.0"
 git push origin v0.1.0
 ```
-
-タグ push でも fullbuild が走り、成功時に Release へ zip が付きます。
-
-### 成果物
-
-- **Release zip**: アプリ + FFmpeg + Python（Whisper モデルなし・2GB 制限対応）
-- **full artifact**: 上記 + small/turbo モデル込み（Actions、90 日）
 
 ## セキュリティ
 
