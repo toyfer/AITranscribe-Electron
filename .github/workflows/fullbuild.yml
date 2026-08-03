@@ -1,28 +1,26 @@
 name: FullBuild AITranscribe-Electron for Windows
 
-# 成果物の役割分担（GitHub Release は 2GB 制限）:
+# 成果物:
+#   Release Assets  … slim zip（モデルなし・2GB 未満）
+#   Artifact full   … モデル込み完全版
 #
-#   Release Assets  … アプリ + FFmpeg + Python のみ（モデルなし・~500MB）
-#   Artifact full   … 上記 + small/turbo モデル込み（完全版・容量無制限）
-#
-# 重要: Whisper モデルは electron-builder の前に置かない。
-#       builder が作る zip が 2GB を超えて Release 失敗するのを防ぐ。
-#       モデルは build 後に win-unpacked へ後載せし、artifact のみに含める。
-#
-# 起動:
-#   1. タグ push (v*)
-#   2. workflow_dispatch — tag 入力でタグ作成 + ビルド + Release
+# タグ方針:
+#   workflow_dispatch で tag を空 → v0.1.0-YYYYMMDD を自動作成
+#   同日に再実行 → v0.1.0-YYYYMMDD-2, -3 ...（既存タグを消さなくてよい）
+#   tag=none → ビルドのみ（Release なし）
+#   tag=v0.1.0-20260803 など → その名前で作成
+#   タグ push (v*) でも従来どおりビルド + Release
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release タグ (例: v0.1.0)。空ならビルドのみ（Release なし）"
+        description: "空=日付自動 (v0.1.0-YYYYMMDD) / none=ビルドのみ / 任意タグ名"
         required: false
         default: ""
         type: string
       ref:
-        description: "チェックアウトする branch/SHA（空 = この workflow が載っている ref）"
+        description: "checkout する branch/SHA（空 = この workflow の ref）"
         required: false
         default: ""
         type: string
@@ -34,7 +32,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: fullbuild-${{ github.ref }}-${{ github.event.inputs.tag || 'notag' }}
+  group: fullbuild-${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.tag || 'auto' }}
   cancel-in-progress: false
 
 env:
@@ -42,36 +40,14 @@ env:
   PYTHONIOENCODING: "utf-8"
   HF_HUB_DISABLE_SYMLINKS_WARNING: "1"
   HF_HUB_DISABLE_UPDATE_CHECK: "1"
+  # package.json version の major.minor に合わせる（日付サフィックス用）
+  RELEASE_VERSION_PREFIX: "v0.1.0"
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      - name: Resolve release tag + short SHA
-        id: meta
-        shell: pwsh
-        run: |
-          $tag = ""
-          if ("${{ github.event_name }}" -eq "push" -and "${{ github.ref }}" -like "refs/tags/v*") {
-            $tag = "${{ github.ref_name }}"
-          } elseif ("${{ github.event_name }}" -eq "workflow_dispatch") {
-            $raw = "${{ github.event.inputs.tag }}".Trim()
-            if ($raw -ne "") {
-              if ($raw -notmatch '^v\d+\.\d+\.\d+') {
-                Write-Error "tag must look like v0.1.0 (got: $raw)"
-                exit 1
-              }
-              $tag = $raw
-            }
-          }
-          $doRelease = if ($tag -ne "") { "true" } else { "false" }
-          $short = "${{ github.sha }}".Substring(0, 7)
-          echo "tag=$tag" >> $env:GITHUB_OUTPUT
-          echo "do_release=$doRelease" >> $env:GITHUB_OUTPUT
-          echo "git_short=$short" >> $env:GITHUB_OUTPUT
-          Write-Host "tag=$tag do_release=$doRelease git_short=$short"
-
       - name: Set build date
         shell: pwsh
         run: |
@@ -84,6 +60,77 @@ jobs:
           ref: ${{ github.event.inputs.ref != '' && github.event.inputs.ref || github.ref }}
           fetch-depth: 0
 
+      - name: Resolve release tag (date-based by default)
+        id: meta
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          PREFIX: ${{ env.RELEASE_VERSION_PREFIX }}
+          BUILD_DATE: ${{ env.BUILD_DATE }}
+        run: |
+          $tag = ""
+          $doRelease = "false"
+
+          if ($env:EVENT_NAME -eq "push" -and $env:GITHUB_REF -like "refs/tags/v*") {
+            $tag = $env:REF_NAME
+            $doRelease = "true"
+            Write-Host "Tag from push: $tag"
+          } elseif ($env:EVENT_NAME -eq "workflow_dispatch") {
+            $raw = if ($null -eq $env:INPUT_TAG) { "" } else { $env:INPUT_TAG.Trim() }
+
+            if ($raw -eq "" -or $raw -eq "auto") {
+              # 日付タグ自動: v0.1.0-YYYYMMDD / 衝突時 -2, -3...
+              $base = "$($env:PREFIX)-$($env:BUILD_DATE)"
+              $candidate = $base
+              $n = 1
+              while ($true) {
+                git rev-parse -q --verify "refs/tags/$candidate" 2>$null | Out-Null
+                $local = ($LASTEXITCODE -eq 0)
+                git ls-remote --exit-code --tags origin "refs/tags/$candidate" 2>$null | Out-Null
+                $remote = ($LASTEXITCODE -eq 0)
+                if (-not $local -and -not $remote) { break }
+                $n++
+                $candidate = "$base-$n"
+                if ($n -gt 50) {
+                  Write-Error "Could not find free tag name under $base"
+                  exit 1
+                }
+              }
+              $tag = $candidate
+              $doRelease = "true"
+              Write-Host "Auto date tag: $tag"
+            } elseif ($raw -match '^(none|skip|-)$') {
+              $tag = ""
+              $doRelease = "false"
+              Write-Host "Build only (no release)"
+            } else {
+              # 任意タグ（v で始めること推奨）
+              if ($raw -notmatch '^v[0-9A-Za-z._-]+$') {
+                Write-Error "Invalid tag '$raw'. Use v0.1.0-20260803 style, empty for auto, or none."
+                exit 1
+              }
+              git rev-parse -q --verify "refs/tags/$raw" 2>$null | Out-Null
+              $local = ($LASTEXITCODE -eq 0)
+              git ls-remote --exit-code --tags origin "refs/tags/$raw" 2>$null | Out-Null
+              $remote = ($LASTEXITCODE -eq 0)
+              if ($local -or $remote) {
+                Write-Error "Tag $raw already exists. Leave tag empty for auto date, or pick a new name."
+                exit 1
+              }
+              $tag = $raw
+              $doRelease = "true"
+              Write-Host "Custom tag: $tag"
+            }
+          }
+
+          $short = (git rev-parse --short=7 HEAD)
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          echo "do_release=$doRelease" >> $env:GITHUB_OUTPUT
+          echo "git_short=$short" >> $env:GITHUB_OUTPUT
+          Write-Host "Resolved: tag=$tag do_release=$doRelease git_short=$short HEAD=$(git rev-parse HEAD)"
+
       - name: Create annotated tag (workflow_dispatch only)
         if: steps.meta.outputs.do_release == 'true' && github.event_name == 'workflow_dispatch'
         shell: pwsh
@@ -92,20 +139,15 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          $exists = git rev-parse -q --verify "refs/tags/$env:TAG" 2>$null
+          # 直前 step で未使用を確認済み。それでも競合したら失敗させる
+          git rev-parse -q --verify "refs/tags/$env:TAG" 2>$null | Out-Null
           if ($LASTEXITCODE -eq 0) {
-            $point = git rev-list -n 1 $env:TAG
-            $head = git rev-parse HEAD
-            if ($point -ne $head) {
-              Write-Error "Tag $env:TAG already exists on $point (HEAD is $head). Delete the tag or pick another version."
-              exit 1
-            }
-            Write-Host "Tag $env:TAG already points at HEAD — reuse"
-          } else {
-            git tag -a $env:TAG -m "$env:TAG release (Actions workflow_dispatch)"
-            git push origin "refs/tags/$env:TAG"
-            Write-Host "Created and pushed tag $env:TAG -> $(git rev-parse HEAD)"
+            Write-Error "Race: tag $env:TAG appeared locally. Re-run workflow."
+            exit 1
           }
+          git tag -a $env:TAG -m "$env:TAG release (Actions workflow_dispatch)"
+          git push origin "refs/tags/$env:TAG"
+          Write-Host "Created and pushed tag $env:TAG -> $(git rev-parse HEAD)"
 
       - name: Set up Node.js (24 LTS)
         uses: actions/setup-node@v5
@@ -136,7 +178,6 @@ jobs:
         shell: pwsh
         run: Invoke-WebRequest -UseBasicParsing -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
 
-      # モデルはここでは取得しない（builder zip が 2GB 超えるのを防ぐ）
       - name: Setup FFmpeg + Embeddable + pinned pip deps (no Whisper models)
         shell: pwsh
         run: |
@@ -162,13 +203,12 @@ jobs:
       - name: List build outputs (pre-models)
         shell: pwsh
         run: |
-          Get-ChildItem build -File | Select-Object Name, @{N='MB';E={[math]::Round($_.Length/1MB,1)}}
+          Get-ChildItem build -File -ErrorAction SilentlyContinue | Select-Object Name, @{N='MB';E={[math]::Round($_.Length/1MB,1)}}
           if (Test-Path build\win-unpacked) {
             $s = (Get-ChildItem -Recurse build\win-unpacked | Measure-Object Length -Sum).Sum
             Write-Host "win-unpacked size: $([math]::Round($s/1MB,1)) MB"
           }
 
-      # electron-builder の zip（target: zip）は slim。Release 用に固定名へコピー
       - name: Prepare slim release zip (models excluded)
         id: slim
         shell: pwsh
@@ -181,14 +221,13 @@ jobs:
           $name = "AITranscribe-Electron-v0.1-${date}-${git}-x64-slim.zip"
           $dest = "build\$name"
 
-          # builder が作った zip を優先（models 無しで build しているので slim）
-          $builderZips = @(Get-ChildItem -Path build -Filter "AITranscribe-Electron-v0.1-*-x64.zip" -File -ErrorAction SilentlyContinue)
+          $builderZips = @(Get-ChildItem -Path build -Filter "AITranscribe-Electron-v0.1-*-x64.zip" -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notlike "*-slim.zip" })
           if ($builderZips.Count -ge 1) {
             $srcZip = $builderZips | Sort-Object Length | Select-Object -First 1
             Copy-Item -Path $srcZip.FullName -Destination $dest -Force
             Write-Host "Slim zip from builder: $($srcZip.Name) -> $name ($([math]::Round((Get-Item $dest).Length/1MB,1)) MB)"
           } else {
-            # フォールバック: win-unpacked を zip
             $src = "build\win-unpacked"
             if (-not (Test-Path $src)) { Write-Error "build\win-unpacked not found"; exit 1 }
             if (Test-Path $dest) { Remove-Item -Force $dest }
@@ -204,7 +243,6 @@ jobs:
             Write-Error "Slim zip still exceeds 2GB ($mb MB). Abort."
             exit 1
           }
-          # softprops 用に正スラッシュのパスを出力
           echo "path=build/$name" >> $env:GITHUB_OUTPUT
           echo "name=$name" >> $env:GITHUB_OUTPUT
 
@@ -215,13 +253,11 @@ jobs:
           retention-days: 30
           path: ${{ steps.slim.outputs.path }}
 
-      # ここから完全版: モデルを win-unpacked に後載せ（Release には載せない）
       - name: Download Whisper models into win-unpacked (full artifact only)
         shell: pwsh
         run: |
           $root = "build\win-unpacked\resources\app\src\Whisper\models"
           if (-not (Test-Path "build\win-unpacked\resources\app\src\Whisper")) {
-            # asar:false + files 配置のフォールバック探索
             $cand = Get-ChildItem -Path build\win-unpacked -Recurse -Directory -Filter Whisper -ErrorAction SilentlyContinue |
               Where-Object { Test-Path (Join-Path $_.FullName "ffmpeg.exe") } |
               Select-Object -First 1
@@ -247,7 +283,6 @@ jobs:
             LICENSE
             THIRD_PARTY_NOTICES.md
 
-      # Release には slim 1 本だけ（glob 禁止・2GB 超過 zip を拾わない）
       - name: Attach slim zip to GitHub Release
         if: steps.meta.outputs.do_release == 'true'
         uses: softprops/action-gh-release@v2.4.1
@@ -270,8 +305,8 @@ jobs:
               **Whisper モデルなし**（GitHub 2GB 制限のため）
 
             ### 完全版（モデル込み）
-            - GitHub Actions の **Artifacts → `AITranscribe-Electron-full`**（90 日）
-            - または slim zip 展開後に `docs/models.md` に従い `models/small` / `models/turbo` を手動配置
+            - この workflow run の **Artifacts → `AITranscribe-Electron-full`**（90 日）
+            - または slim 展開後に `docs/models.md` で `models/small` / `models/turbo` を配置
 
             ### できること
             - Faster-Whisper 文字起こし（CPU int8 / 日本語 / VAD）
