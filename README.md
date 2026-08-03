@@ -13,28 +13,29 @@ Faster-Whisper を用いて **オフライン（エアギャップ）** で音�
 - 音声は FFmpeg で 16 kHz WAV に変換したあと、埋め込み Python 上の Faster-Whisper で文字起こしし、CSV を出力します
 - 文字起こし結果の確認用に「文字起こしサポーター」（CSV ビューア）を同梱します
 
-### v0.1.0（文字起こし専用）について
+### v0.1.0 系（文字起こし専用）について
 
-**このリリースでは要約機能（LLM / Word 出力）は使いません。**  
-文字起こしだけを確実に動かすことを優先した正式リリースです。要約は後続バージョンで再投入します（コードはリポジトリ内に残していますが、UI からは非表示です）。
+**この系列では要約機能（LLM / Word 出力）は使いません。**  
+文字起こしだけを確実に動かすことを優先した正式リリースです。要約は後続バージョンで再投入します。
 
 **ライセンス（アプリ本体）:** [MIT](./LICENSE) — Copyright (c) 2023-2026 toyfer  
 **サードパーティ・非同梱ランタイム:** [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)  
 **配布手順:** [docs/distribution.md](./docs/distribution.md)  
 **モデル選定:** [docs/models.md](./docs/models.md)
 
-## ピン留め（v0.1.0・文字起こし専用）
+## ピン留め（v0.1.0 系・文字起こし専用）
 
 | コンポーネント | 固定バージョン | 備考 |
 | --- | --- | --- |
 | Node.js（開発 / CI） | **24.18.0**（`engines`: `>=24 <25`） | Active LTS |
 | Electron | **43.2.0** | Chromium 150 / Node 24.18 |
 | electron-builder | **26.15.7** | + electronFuses |
-| アプリ version | **0.1.0** | package.json 固定・gitタグで管理 |
+| アプリ version | **0.1.0** | package.json 固定 |
+| Release タグ | **v0.1.0-YYYYMMDD** | 日付で毎回ユニーク（削除不要） |
 | faster-whisper | **1.2.1** | |
 | モデル（**UI 既定**） | **large-v3-turbo** | 精度重視 |
 | モデル（速度） | **small** | 速度重視 |
-| 要約（LLM） | **本リリースでは未提供** | 後続リリースで再有効化予定 |
+| 要約（LLM） | **未提供** | 後続で再有効化予定 |
 
 ```bash
 npm ci
@@ -81,42 +82,32 @@ npm run build_win
 
 ## リリース
 
-### 成果物の役割分担（重要）
+### 成果物の役割分担
 
 | 置き場 | 中身 | サイズ目安 |
 | --- | --- | --- |
-| **GitHub Release Assets** | アプリ + FFmpeg + Python（**モデルなし** slim） | ~500MB（2GB 未満） |
-| **Actions Artifact `AITranscribe-Electron-full`** | slim + **small/turbo モデル込み**（完全版） | ~2.5GB（90 日） |
+| **GitHub Release Assets** | slim zip（アプリ + FFmpeg + Python・**モデルなし**） | ~500MB |
+| **Actions Artifact `AITranscribe-Electron-full`** | slim + small/turbo（完全版） | ~2.5GB（90 日） |
 
-GitHub Release は **2GB 制限**があるため、モデル込みは **Artifact のみ**です。
+### 推奨: Actions で日付タグ自動
 
-### 推奨: GitHub Actions から一発
+1. [FullBuild](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/fullbuild.yml) → **Run workflow**
+2. Branch: `main`
+3. **tag**: **空のまま**（自動で `v0.1.0-20260803` など）
+4. 同日に再実行すると `v0.1.0-20260803-2` … と増える（**既存タグを消さなくてよい**）
 
-1. [FullBuild workflow](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/fullbuild.yml) を開く
-2. **Run workflow**
-3. Branch: `main`
-4. **tag**: `v0.1.0`（空 = ビルドのみ・Release なし）
-5. **ref**: 空で OK
+| tag 入力 | 動作 |
+| --- | --- |
+| （空） / `auto` | `v0.1.0-YYYYMMDD` を自動作成して Release |
+| `none` | ビルドのみ（タグ・Release なし） |
+| `v0.1.0-20260803` など | その名前で作成（既にあればエラー） |
 
 成功すると:
 
-- タグが作成される
-- Release に **slim zip**（`*-x64-slim.zip`）が付く
-- Artifacts に **full**（モデル込み）と **slim** が残る
+- 新しい日付タグ + GitHub Release（slim zip）
+- Artifacts に full（モデル込み）と slim
 
-> `GITHUB_TOKEN` が push したタグは別 workflow を起動しないため、同じ run 内でタグ作成 → ビルド → Release まで完結します。
-
-### 再リリース時（タグが既にある場合）
-
-`v0.1.0` が既に存在し HEAD と一致していればタグは再利用されます。  
-別コミットで同じタグを付けたい場合は、先に draft/失敗 Release とタグを削除してから再実行してください。
-
-### 従来: ローカルからタグ push
-
-```bash
-git tag -a v0.1.0 -m "v0.1.0"
-git push origin v0.1.0
-```
+> 古い `v0.1.0` 固定タグは残っていても問題ありません。今後は日付タグを使います。
 
 ## セキュリティ
 
@@ -127,6 +118,6 @@ git push origin v0.1.0
 
 | リリース | 内容 |
 | --- | --- |
-| **v0.1.0（本リリース）** | 文字起こしを確実に使える正式版 |
-| 後続 | 要約（llama-cli + GGUF → docx）の再有効化・品質向上 |
+| **v0.1.0-YYYYMMDD** | 文字起こしを確実に使える正式版（日付ビルド） |
+| 後続 | 要約の再有効化・品質向上 |
 | 以降 | 実機フィードバックと依存の定期更新 |
