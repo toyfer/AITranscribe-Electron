@@ -1,13 +1,14 @@
 name: FullBuild AITranscribe-Electron for Windows
 
-# Online assembly: npm ci + FFmpeg + Python Embeddable + models + llama-cli + GGUF + electron-builder.
+# Online assembly: npm ci + FFmpeg + Python Embeddable + Whisper models + electron-builder.
+#
+# v0.1.0-transcribe (文字起こし専用):
+#   llama-cli / GGUF は取得しない（要約は後続リリース）。
 #
 # 2 種類の成果物を作る:
-#   1. Workflow artifact (全入り): 容量無制限。
-#      Whisper モデル・llama-cli・GGUF を含む完全版。
+#   1. Workflow artifact (Whisper モデル込み): 容量無制限。
 #      開発者 / CI 検証用。
-#   2. Release zip (モデル抜き): 2GB 制限のため Whisper モデル・
-#      llama-cli・GGUF を除いたアプリ本体のみ。
+#   2. Release zip (モデル抜き): 2GB 制限のため Whisper モデルを除いたアプリ本体。
 #      ユーザーが docs/models.md を参照して手動で取得・配置する。
 #      タグ push 時に GitHub Release に添付。
 #
@@ -86,30 +87,6 @@ jobs:
         run: |
           hf download Systran/faster-whisper-small --local-dir src/Whisper/models/small --quiet
           hf download deepdml/faster-whisper-large-v3-turbo-ct2 --local-dir src/Whisper/models/turbo --quiet
-
-      - name: llama-cli (latest CPU Windows release)
-        shell: pwsh
-        run: |
-          $release = Invoke-RestMethod -UseBasicParsing -Uri "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
-          $asset = $release.assets | Where-Object { $_.name -like "*bin-win-cpu-x64.zip" } | Select-Object -First 1
-          if (-not $asset) {
-            Write-Error "No win-cpu-x64 asset in latest llama.cpp release"
-            exit 1
-          }
-          Write-Host "Downloading $($asset.name) (tag=$($release.tag_name))"
-          Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -Outfile llama.zip
-          Expand-Archive -Path llama.zip -DestinationPath llama
-          Copy-Item -Path "llama\llama-cli.exe" -Destination "src\Whisper\llama-cli.exe"
-
-      - name: GGUF model (Qwen3.5-0.8B Q4_K_M via unsloth mirror)
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path src\Whisper\models\llm
-          hf download unsloth/Qwen3.5-0.8B-GGUF --include "Qwen3.5-0.8B-Q4_K_M.gguf" --local-dir src/Whisper/models/llm --quiet
-          $src = "src\Whisper\models\llm\Qwen3.5-0.8B-Q4_K_M.gguf"
-          if (Test-Path $src) {
-            Move-Item -Path $src -Destination "src\Whisper\models\llm\qwen3.5-0.8b-q4_k_m.gguf"
-          }
 
       - name: Setup FFmpeg + Embeddable + pinned pip deps
         shell: pwsh
@@ -190,7 +167,7 @@ jobs:
             exit 1
           }
 
-      - name: Upload workflow artifact (full, unbounded size)
+      - name: Upload workflow artifact (full with Whisper models)
         uses: actions/upload-artifact@v5
         with:
           name: AITranscribe-Electron-full
@@ -216,5 +193,31 @@ jobs:
           files: build/AITranscribe-Electron-v0.1-*-x64.zip
           generate_release_notes: true
           fail_on_unmatched_files: true
+          body: |
+            ## AITranscribe-Electron v0.1.0（文字起こし専用）
+
+            オフライン（エアギャップ）向け Windows 文字起こしアプリです。
+            **このリリースには要約機能（LLM）は含まれません。** 文字起こしのみ確実に使えます。
+
+            ### できること
+            - Faster-Whisper による音声文字起こし（CPU int8 / 日本語 / VAD）
+            - モデル 2 択: 速度重視 (small) / 精度重視 (turbo, 既定)
+            - 実測ベース進捗バー + タスクバー進捗
+            - CSV 出力 + 文字起こしサポーター（CSV ビューア）
+
+            ### 含まれないもの（後続リリース）
+            - LLM 要約 / Word (.docx) 出力
+            - llama-cli / GGUF
+
+            ### 成果物
+            - **Release zip**（本 Assets）: アプリ + FFmpeg + Python（**Whisper モデルなし**・2GB 制限対応）
+            - **full artifact**（Actions）: 上記 + small/turbo モデル込み（90 日）
+
+            ### セットアップ
+            1. zip を展開
+            2. `docs/models.md` に従い `models/small` または `models/turbo` を配置
+            3. 起動 → 音声選択 → スタート
+
+            See THIRD_PARTY_NOTICES.md / docs/distribution.md.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
