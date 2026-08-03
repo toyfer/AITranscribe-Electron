@@ -11,14 +11,19 @@ Faster-Whisper を用いて **オフライン（エアギャップ）** で音�
 
 - 実行時に **インターネットへアクセスしません**（モデル・Python・FFmpeg はすべてローカル配置）
 - 音声は FFmpeg で 16 kHz WAV に変換したあと、埋め込み Python 上の Faster-Whisper で文字起こしし、CSV を出力します
-- 文字起こし結果の CSV を LLM（llama.cpp + GGUF）で要約し、Word (.docx) として出力する機能を備えます
+- 文字起こし結果の確認用に「文字起こしサポーター」（CSV ビューア）を同梱します
+
+### v0.1.0（文字起こし専用）について
+
+**このリリースでは要約機能（LLM / Word 出力）は使いません。**  
+文字起こしだけを確実に動かすことを優先した正式リリースです。要約は後続バージョンで再投入します（コードはリポジトリ内に残していますが、UI からは非表示です）。
 
 **ライセンス（アプリ本体）:** [MIT](./LICENSE) — Copyright (c) 2023-2026 toyfer  
 **サードパーティ・非同梱ランタイム:** [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)  
 **配布手順:** [docs/distribution.md](./docs/distribution.md)  
 **モデル選定:** [docs/models.md](./docs/models.md)
 
-## ピン留め（v0.1.0）
+## ピン留め（v0.1.0・文字起こし専用）
 
 | コンポーネント | 固定バージョン | 備考 |
 | --- | --- | --- |
@@ -29,7 +34,7 @@ Faster-Whisper を用いて **オフライン（エアギャップ）** で音�
 | faster-whisper | **1.2.1** | |
 | モデル（**UI 既定**） | **large-v3-turbo** | 精度重視 |
 | モデル（速度） | **small** | 速度重視 |
-| LLM（要約機能） | **Qwen3.5-0.8B** (Q4_K_M GGUF) | CPU推論・`pickModel` で最優先選択 |
+| 要約（LLM） | **本リリースでは未提供** | 後続リリースで再有効化予定 |
 
 ```bash
 npm ci
@@ -43,40 +48,28 @@ npm ci
 | 速度重視 | `models/small/` | Systran/faster-whisper-small |
 | **精度重視（デフォルト）** | `models/turbo/` | deepdml/faster-whisper-large-v3-turbo-ct2 |
 
-```bash
+```powershell
 git clone --depth 1 https://huggingface.co/Systran/faster-whisper-small src/Whisper/models/small
 git clone --depth 1 https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2 src/Whisper/models/turbo
 ```
 
 - 推論: CPU `int8` + `language=ja` + `vad_filter=True`
 
-## 要約機能（オプション）
-
-文字起こし結果の CSV を LLM で要約し、Word (.docx) を出力します。エアギャップ環境で動作し、外部 API は使いません。
-
-必要なランタイム（手動配置）:
-
-```text
-src/Whisper/
-  llama-cli.exe                    # llama.cpp ビルド済みバイナリ
-  models/llm/
-    qwen3.5-0.8b-q4_k_m.gguf      # Qwen3.5-0.8B GGUF (Q4_K_M) — 推奨
-```
-
-複数の GGUF を配置した場合、`pickModel` が名称スコア（`qwen3.5-0.8b` > `qwen3.5` > `qwen3` > その他）とファイルサイズ（小さい方を優先）で最適なモデルを自動選択します。UI からのモデル選択は現在未対応です。
-
-詳細: [docs/models.md](./docs/models.md) · [docs/summarize.md](./docs/summarize.md)
-
-## エアギャップ配置
+## エアギャップ配置（文字起こし）
 
 ```text
 src/Whisper/
   ffmpeg.exe / python.exe / Lib/ ...
   Faster-Whisper.py
   models/{small,turbo}/
-  llama-cli.exe (オプション)
-  models/llm/*.gguf (オプション)
 ```
+
+## 使い方
+
+1. 音声ファイルを選択
+2. モデル（速度重視 / 精度重視）を選ぶ
+3. **スタート** → CSV が音声ファイルと同じ場所に出力される
+4. 必要ならヘッダーの **文字起こしサポーター** で CSV を確認
 
 ## 開発・ビルド
 
@@ -90,6 +83,15 @@ npm run build_win
 
 タグ `v*` を push すると fullbuild が走り、成功時に **GitHub Release の Assets** へ Windows zip が添付されます。
 
+```bash
+# マージ後（main 上で）
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+- **Release zip**: アプリ + FFmpeg + Python（Whisper モデルなし・2GB 制限対応）
+- **full artifact**: 上記 + small/turbo モデル込み（Actions、90 日）
+
 ## セキュリティ
 
 `contextIsolation` / `sandbox` / `nodeIntegration: false` / `shell: false` spawn / Electron fuses（配布ビルド）  
@@ -97,4 +99,8 @@ npm run build_win
 
 ## ロードマップ
 
-Phase 0–5 完了。v0.1.0 は初の正式リリース。以降は実機フィードバックと依存の定期更新。
+| リリース | 内容 |
+| --- | --- |
+| **v0.1.0（本リリース）** | 文字起こしを確実に使える正式版 |
+| 後続 | 要約（llama-cli + GGUF → docx）の再有効化・品質向上 |
+| 以降 | 実機フィードバックと依存の定期更新 |
