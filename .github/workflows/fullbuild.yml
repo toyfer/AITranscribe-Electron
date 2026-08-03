@@ -1,22 +1,17 @@
 name: FullBuild AITranscribe-Electron for Windows
 
-# Online assembly: npm ci + FFmpeg + Python Embeddable + Whisper models + electron-builder.
+# 成果物の役割分担（GitHub Release は 2GB 制限）:
 #
-# v0.1.0-transcribe (文字起こし専用):
-#   llama-cli / GGUF は取得しない（要約は後続リリース）。
+#   Release Assets  … アプリ + FFmpeg + Python のみ（モデルなし・~500MB）
+#   Artifact full   … 上記 + small/turbo モデル込み（完全版・容量無制限）
 #
-# 起動方法:
-#   1. タグ push (v*) — 従来どおりビルド + Release 添付
-#   2. workflow_dispatch — ビルドのみ、または tag 入力で「タグ作成 + ビルド + Release」
+# 重要: Whisper モデルは electron-builder の前に置かない。
+#       builder が作る zip が 2GB を超えて Release 失敗するのを防ぐ。
+#       モデルは build 後に win-unpacked へ後載せし、artifact のみに含める。
 #
-# 注意: GITHUB_TOKEN で作成したタグ push は他 workflow を起動しない。
-#       そのため Release は必ずこの run 内で作成する。
-#
-# 2 種類の成果物:
-#   1. Workflow artifact (Whisper モデル込み)
-#   2. Release zip (モデル抜き・2GB 制限対応) — タグ時に GitHub Release へ添付
-#
-# zip: AITranscribe-Electron-v0.1-YYYYMMDD-GITSHORT-x64.zip
+# 起動:
+#   1. タグ push (v*)
+#   2. workflow_dispatch — tag 入力でタグ作成 + ビルド + Release
 
 on:
   workflow_dispatch:
@@ -53,7 +48,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Resolve release tag
+      - name: Resolve release tag + short SHA
         id: meta
         shell: pwsh
         run: |
@@ -71,9 +66,11 @@ jobs:
             }
           }
           $doRelease = if ($tag -ne "") { "true" } else { "false" }
+          $short = "${{ github.sha }}".Substring(0, 7)
           echo "tag=$tag" >> $env:GITHUB_OUTPUT
           echo "do_release=$doRelease" >> $env:GITHUB_OUTPUT
-          Write-Host "tag=$tag do_release=$doRelease"
+          echo "git_short=$short" >> $env:GITHUB_OUTPUT
+          Write-Host "tag=$tag do_release=$doRelease git_short=$short"
 
       - name: Set build date
         shell: pwsh
@@ -84,7 +81,6 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v5
         with:
-          # workflow_dispatch で ref 指定があればそれを使う。なければ github.ref
           ref: ${{ github.event.inputs.ref != '' && github.event.inputs.ref || github.ref }}
           fetch-depth: 0
 
@@ -140,13 +136,8 @@ jobs:
         shell: pwsh
         run: Invoke-WebRequest -UseBasicParsing -Uri https://www.python.org/ftp/python/3.11.4/python-3.11.4-embed-amd64.zip -Outfile Python.zip
 
-      - name: Faster-Whisper models (small + turbo) via HF CLI
-        shell: pwsh
-        run: |
-          hf download Systran/faster-whisper-small --local-dir src/Whisper/models/small --quiet
-          hf download deepdml/faster-whisper-large-v3-turbo-ct2 --local-dir src/Whisper/models/turbo --quiet
-
-      - name: Setup FFmpeg + Embeddable + pinned pip deps
+      # モデルはここでは取得しない（builder zip が 2GB 超えるのを防ぐ）
+      - name: Setup FFmpeg + Embeddable + pinned pip deps (no Whisper models)
         shell: pwsh
         run: |
           Expand-Archive -Path FFmpeg.zip -DestinationPath FFmpeg-extracted
@@ -162,67 +153,89 @@ jobs:
           Copy-Item requirements-whisper.txt src\Whisper\requirements-whisper.txt
           src\Whisper\python.exe -m pip install -r src\Whisper\requirements-whisper.txt
 
-      - name: Build Electron project for Windows
+      - name: Build Electron project for Windows (slim — no model weights)
         run: npm run build_win
         env:
           BUILD_DATE: ${{ env.BUILD_DATE }}
-          GIT_SHORT: ${{ github.sha }}
+          GIT_SHORT: ${{ steps.meta.outputs.git_short }}
 
-      - name: List build outputs
+      - name: List build outputs (pre-models)
         shell: pwsh
-        run: Get-ChildItem -Recurse build | Select-Object FullName, Length
+        run: |
+          Get-ChildItem build -File | Select-Object Name, @{N='MB';E={[math]::Round($_.Length/1MB,1)}}
+          if (Test-Path build\win-unpacked) {
+            $s = (Get-ChildItem -Recurse build\win-unpacked | Measure-Object Length -Sum).Sum
+            Write-Host "win-unpacked size: $([math]::Round($s/1MB,1)) MB"
+          }
 
-      - name: Build release zip without large models
+      # electron-builder の zip（target: zip）は slim。Release 用に固定名へコピー
+      - name: Prepare slim release zip (models excluded)
+        id: slim
         shell: pwsh
         env:
           BUILD_DATE: ${{ env.BUILD_DATE }}
-          GIT_SHORT: ${{ github.sha }}
+          GIT_SHORT: ${{ steps.meta.outputs.git_short }}
         run: |
-          $src = "build\win-unpacked"
-          if (-not (Test-Path $src)) {
-            Write-Error "build\win-unpacked not found"
-            exit 1
-          }
-          $stage = "build\release-staging"
-          if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
-          New-Item -ItemType Directory -Force -Path $stage | Out-Null
-          Copy-Item -Path "$src\*" -Destination $stage -Recurse -Force
-
-          $toRemove = @(
-            "resources\app\src\Whisper\models\small",
-            "resources\app\src\Whisper\models\turbo",
-            "resources\app\src\Whisper\llama-cli.exe",
-            "resources\app\src\Whisper\models\llm"
-          )
-          foreach ($p in $toRemove) {
-            $full = Join-Path $stage $p
-            if (Test-Path $full) {
-              Remove-Item -Recurse -Force $full
-              Write-Host "Removed from release zip: $p"
-            } else {
-              Write-Host "NOT FOUND (skipped): $p"
-            }
-          }
-
-          $stageSize = (Get-ChildItem -Recurse $stage | Measure-Object -Property Length -Sum).Sum
-          $stageSizeGB = [math]::Round($stageSize / 1GB, 2)
-          Write-Host "Staging directory size after removal: $stageSizeGB GB"
-
           $date = $env:BUILD_DATE
-          $git = $env:GIT_SHORT.Substring(0, 7)
-          $releaseZipName = "AITranscribe-Electron-v0.1-${date}-${git}-x64.zip"
-          $releaseZip = "build\$releaseZipName"
-          if (Test-Path $releaseZip) { Remove-Item -Force $releaseZip }
-          Add-Type -AssemblyName "System.IO.Compression.FileSystem"
-          [System.IO.Compression.ZipFile]::CreateFromDirectory($stage, $releaseZip)
-          $sizeGB = [math]::Round((Get-Item $releaseZip).Length / 1GB, 2)
-          Write-Host "Release zip: $releaseZipName = $sizeGB GB"
-          if ((Get-Item $releaseZip).Length -gt 2GB) {
-            Write-Error "Release zip exceeds 2GB ($sizeGB GB). GitHub Release will reject."
-            exit 1
+          $git = $env:GIT_SHORT
+          $name = "AITranscribe-Electron-v0.1-${date}-${git}-x64-slim.zip"
+          $dest = "build\$name"
+
+          # builder が作った zip を優先（models 無しで build しているので slim）
+          $builderZips = @(Get-ChildItem -Path build -Filter "AITranscribe-Electron-v0.1-*-x64.zip" -File -ErrorAction SilentlyContinue)
+          if ($builderZips.Count -ge 1) {
+            $srcZip = $builderZips | Sort-Object Length | Select-Object -First 1
+            Copy-Item -Path $srcZip.FullName -Destination $dest -Force
+            Write-Host "Slim zip from builder: $($srcZip.Name) -> $name ($([math]::Round((Get-Item $dest).Length/1MB,1)) MB)"
+          } else {
+            # フォールバック: win-unpacked を zip
+            $src = "build\win-unpacked"
+            if (-not (Test-Path $src)) { Write-Error "build\win-unpacked not found"; exit 1 }
+            if (Test-Path $dest) { Remove-Item -Force $dest }
+            Add-Type -AssemblyName "System.IO.Compression.FileSystem"
+            [System.IO.Compression.ZipFile]::CreateFromDirectory($src, $dest)
+            Write-Host "Slim zip from win-unpacked: $name"
           }
 
-      - name: Upload workflow artifact (full with Whisper models)
+          $bytes = (Get-Item $dest).Length
+          $mb = [math]::Round($bytes / 1MB, 1)
+          Write-Host "Slim release zip: $name = $mb MB"
+          if ($bytes -gt 2GB) {
+            Write-Error "Slim zip still exceeds 2GB ($mb MB). Abort."
+            exit 1
+          }
+          # softprops 用に正スラッシュのパスを出力
+          echo "path=build/$name" >> $env:GITHUB_OUTPUT
+          echo "name=$name" >> $env:GITHUB_OUTPUT
+
+      - name: Upload slim release zip as artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: AITranscribe-Electron-release-slim
+          retention-days: 30
+          path: ${{ steps.slim.outputs.path }}
+
+      # ここから完全版: モデルを win-unpacked に後載せ（Release には載せない）
+      - name: Download Whisper models into win-unpacked (full artifact only)
+        shell: pwsh
+        run: |
+          $root = "build\win-unpacked\resources\app\src\Whisper\models"
+          if (-not (Test-Path "build\win-unpacked\resources\app\src\Whisper")) {
+            # asar:false + files 配置のフォールバック探索
+            $cand = Get-ChildItem -Path build\win-unpacked -Recurse -Directory -Filter Whisper -ErrorAction SilentlyContinue |
+              Where-Object { Test-Path (Join-Path $_.FullName "ffmpeg.exe") } |
+              Select-Object -First 1
+            if (-not $cand) { Write-Error "Whisper dir not found under win-unpacked"; exit 1 }
+            $root = Join-Path $cand.FullName "models"
+            Write-Host "Whisper models root: $root"
+          }
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          hf download Systran/faster-whisper-small --local-dir "$root\small" --quiet
+          hf download deepdml/faster-whisper-large-v3-turbo-ct2 --local-dir "$root\turbo" --quiet
+          $s = (Get-ChildItem -Recurse build\win-unpacked | Measure-Object Length -Sum).Sum
+          Write-Host "win-unpacked + models: $([math]::Round($s/1MB,1)) MB / $([math]::Round($s/1GB,2)) GB"
+
+      - name: Upload full artifact (app + FFmpeg + Python + Whisper models)
         uses: actions/upload-artifact@v5
         with:
           name: AITranscribe-Electron-full
@@ -234,45 +247,41 @@ jobs:
             LICENSE
             THIRD_PARTY_NOTICES.md
 
-      - name: Upload release zip artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: AITranscribe-Electron-release
-          retention-days: 30
-          path: build/AITranscribe-Electron-v0.1-*-x64.zip
-
-      - name: Attach release zip to GitHub Release
+      # Release には slim 1 本だけ（glob 禁止・2GB 超過 zip を拾わない）
+      - name: Attach slim zip to GitHub Release
         if: steps.meta.outputs.do_release == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.4.1
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: ${{ steps.meta.outputs.tag }}
-          files: build/AITranscribe-Electron-v0.1-*-x64.zip
+          draft: false
+          prerelease: false
+          files: ${{ steps.slim.outputs.path }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           body: |
             ## AITranscribe-Electron ${{ steps.meta.outputs.tag }}（文字起こし専用）
 
             オフライン（エアギャップ）向け Windows 文字起こしアプリです。
-            **このリリースには要約機能（LLM）は含まれません。** 文字起こしのみ確実に使えます。
+            **このリリースには要約機能（LLM）は含まれません。**
+
+            ### Release Assets（本ページ）
+            - **slim zip**（`${{ steps.slim.outputs.name }}`）: アプリ + FFmpeg + Python  
+              **Whisper モデルなし**（GitHub 2GB 制限のため）
+
+            ### 完全版（モデル込み）
+            - GitHub Actions の **Artifacts → `AITranscribe-Electron-full`**（90 日）
+            - または slim zip 展開後に `docs/models.md` に従い `models/small` / `models/turbo` を手動配置
 
             ### できること
-            - Faster-Whisper による音声文字起こし（CPU int8 / 日本語 / VAD）
+            - Faster-Whisper 文字起こし（CPU int8 / 日本語 / VAD）
             - モデル 2 択: 速度重視 (small) / 精度重視 (turbo, 既定)
-            - 実測ベース進捗バー + タスクバー進捗
-            - CSV 出力 + 文字起こしサポーター（CSV ビューア）
+            - 実測進捗バー + タスクバー進捗
+            - CSV 出力 + 文字起こしサポーター
 
-            ### 含まれないもの（後続リリース）
-            - LLM 要約 / Word (.docx) 出力
-            - llama-cli / GGUF
-
-            ### 成果物
-            - **Release zip**（本 Assets）: アプリ + FFmpeg + Python（**Whisper モデルなし**・2GB 制限対応）
-            - **full artifact**（Actions）: 上記 + small/turbo モデル込み（90 日）
-
-            ### セットアップ
+            ### セットアップ（slim zip）
             1. zip を展開
-            2. `docs/models.md` に従い `models/small` または `models/turbo` を配置
+            2. `docs/models.md` に従いモデルを配置
             3. 起動 → 音声選択 → スタート
 
             See THIRD_PARTY_NOTICES.md / docs/distribution.md.
