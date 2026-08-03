@@ -9,7 +9,7 @@ const { WindowManager } = require("./main/window-manager");
 
 // エアギャップ配布想定: FFmpeg / Python Embeddable / Faster-Whisper モデルは
 // リポジトリに含めず、実行時に src/Whisper 配下に配置する（README 参照）
-// llama-cli / GGUF モデルも同様（手動配置・要約機能を使う場合のみ必要）
+// llama-cli / GGUF は要約機能用（v0.1.0-transcribe では UI 非公開・後続リリース）
 
 const runtime = new RuntimeLayout(__dirname);
 const windows = new WindowManager();
@@ -89,16 +89,12 @@ app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.DIALOG_SAVE_DOCX, handleDocxSave);
   ipcMain.handle(CHANNELS.LIST_LLMS, handleListLlms);
 
-  // ─── Open summarize window — called from the transcribe window ───
+  // ─── Open summarize window (kept for later re-enable; no UI entry in v0.1.0-transcribe) ───
   ipcMain.handle(CHANNELS.OPEN_SUMMARIZE_WINDOW, () => {
     return windows.openSummarizeWindow(PRELOAD_PATH) ? true : false;
   });
 
   // ─── Job dispatch ───
-  // The job class uses `event.sender` to know which webContents initiated
-  // the request. The WindowManager routes the resulting sends back to
-  // that same webContents, so transcribe events only reach the transcribe
-  // window and summarize events only reach the summarize window.
   ipcMain.on(CHANNELS.EXECUTE_RUN_FFMPEG, (event, args) => {
     transcribeJob.start(event, args);
   });
@@ -111,18 +107,14 @@ app.whenReady().then(() => {
   const tw = createTranscribeWindow();
 
   tw.webContents.once("did-finish-load", () => {
-    const { missing, llamaMissing } = runtime.checkRuntimeLayout();
-    sendTranscribeMessage(`[${getNow()}:System]システムを起動しました`);
+    // v0.1.0-transcribe: only check FFmpeg / Python (transcription runtime).
+    // llama-cli / GGUF missing warnings are intentionally suppressed until
+    // the summarize feature is re-enabled in a later release.
+    const { missing } = runtime.checkRuntimeLayout();
+    sendTranscribeMessage(`[${getNow()}:System]システムを起動しました（文字起こし専用 v0.1.0）`);
     if (missing.length > 0) {
       sendTranscribeCommand(
         `[${getNow()}:System]エアギャップ用ランタイム未配置:\n- ${missing.join("\n- ")}\nREADME の配置手順を確認してください。`
-      );
-    }
-    if (llamaMissing.length > 0) {
-      // Broadcast to BOTH windows because the user might already have
-      // the summarize window open.
-      windows.broadcastProcessMessage(
-        `[${getNow()}:System]要約機能を使うには追加配置が必要:\n- ${llamaMissing.join("\n- ")}`
       );
     }
   });
