@@ -4,10 +4,8 @@ name: PartialBuild AITranscribe-Electron for Windows
 # Used for CI checks (does the build succeed? do all pieces download?).
 # GitHub Release zip is produced by fullbuild (workflow_dispatch or push tag).
 #
-# Includes: app + FFmpeg + Python + Whisper models + llama-cli + GGUF
-# (fullbuild artifact matches the convenience of "all-in" dev builds).
-# For the 2GB-limited GitHub Release zip, fullbuild still strips the
-# large binaries from the release-staging directory.
+# v0.1.0-transcribe: app + FFmpeg + Python + Whisper models only
+# (no llama-cli / GGUF — summarize deferred to a later release).
 
 on:
   workflow_dispatch:
@@ -73,30 +71,6 @@ jobs:
           hf download Systran/faster-whisper-small --local-dir src/Whisper/models/small --quiet
           hf download deepdml/faster-whisper-large-v3-turbo-ct2 --local-dir src/Whisper/models/turbo --quiet
 
-      - name: llama-cli (latest CPU Windows release)
-        shell: pwsh
-        run: |
-          $release = Invoke-RestMethod -UseBasicParsing -Uri "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
-          $asset = $release.assets | Where-Object { $_.name -like "*bin-win-cpu-x64.zip" } | Select-Object -First 1
-          if (-not $asset) {
-            Write-Error "No win-cpu-x64 asset in latest llama.cpp release"
-            exit 1
-          }
-          Write-Host "Downloading $($asset.name) (tag=$($release.tag_name))"
-          Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -Outfile llama.zip
-          Expand-Archive -Path llama.zip -DestinationPath llama
-          Copy-Item -Path "llama\llama-cli.exe" -Destination "src\Whisper\llama-cli.exe"
-
-      - name: GGUF model (Qwen3.5-0.8B Q4_K_M via unsloth mirror)
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path src\Whisper\models\llm
-          hf download unsloth/Qwen3.5-0.8B-GGUF --include "Qwen3.5-0.8B-Q4_K_M.gguf" --local-dir src/Whisper/models/llm --quiet
-          $src = "src\Whisper\models\llm\Qwen3.5-0.8B-Q4_K_M.gguf"
-          if (Test-Path $src) {
-            Move-Item -Path $src -Destination "src\Whisper\models\llm\qwen3.5-0.8b-q4_k_m.gguf"
-          }
-
       - name: Setup FFmpeg + Embeddable + pinned pip deps
         shell: pwsh
         run: |
@@ -119,7 +93,7 @@ jobs:
           BUILD_DATE: ${{ env.BUILD_DATE }}
           GIT_SHORT: ${{ github.sha }}
 
-      - name: Archive workflow artifact (all-in, matches fullbuild artifact)
+      - name: Archive workflow artifact (Whisper models included)
         uses: actions/upload-artifact@v5
         with:
           name: AITranscribe-Electron_Partial
