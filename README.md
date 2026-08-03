@@ -81,13 +81,32 @@ npm run build_win
 
 ## リリース
 
-タグ `v*` を push すると fullbuild が走り、成功時に **GitHub Release の Assets** へ Windows zip が添付されます。
+### 推奨: GitHub Actions から一発
+
+1. [FullBuild workflow](https://github.com/toyfer/AITranscribe-Electron/actions/workflows/fullbuild.yml) を開く
+2. **Run workflow** をクリック
+3. Branch: `main`
+4. **tag**: `v0.1.0`（空にするとビルドのみ・Release なし）
+5. **ref**: 空で OK（main の先頭を使う）。特定コミットにしたいときだけ SHA を入れる
+6. 成功すると:
+   - タグ `v0.1.0` が作成される
+   - GitHub Release に zip が添付される
+   - Artifacts に full（モデル込み）も残る
+
+> **なぜ Actions 内でタグを切るか**  
+> `GITHUB_TOKEN` が push したタグは別の workflow を起動しません。  
+> そのため **同じ run の中で** タグ作成 → ビルド → Release 添付まで完結させています。
+
+### 従来: ローカルからタグ push
 
 ```bash
-# マージ後（main 上で）
-git tag v0.1.0
+git tag -a v0.1.0 -m "v0.1.0"
 git push origin v0.1.0
 ```
+
+タグ push でも fullbuild が走り、成功時に Release へ zip が付きます。
+
+### 成果物
 
 - **Release zip**: アプリ + FFmpeg + Python（Whisper モデルなし・2GB 制限対応）
 - **full artifact**: 上記 + small/turbo モデル込み（Actions、90 日）
