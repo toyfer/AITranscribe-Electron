@@ -1,5 +1,6 @@
 # Faster-Whisper の実行（エアギャップ想定: モデルはローカルパスのみ使用）
 # 進捗・計測: stdout に __AIT__{json} 行を出す（main がパースして UI へ）
+# オプション: 第4引数に JSON ファイルパス（beam_size / hotwords 等）
 from faster_whisper import WhisperModel
 import sys
 import os
@@ -26,6 +27,55 @@ def ait_emit(payload: dict) -> None:
     print(AIT_PREFIX + json.dumps(payload, ensure_ascii=False), flush=True)
 
 
+def load_options(path: str | None) -> dict:
+    """Load optional JSON options written by Electron main. Safe defaults if missing."""
+    defaults = {
+        "beam_size": 3,
+        "hotwords": "",
+        "initial_prompt": "",
+        "vad_filter": True,
+        "vad_min_silence_ms": 500,
+        "condition_on_previous_text": True,
+    }
+    if not path:
+        return defaults
+    if not os.path.isfile(path):
+        print(f"Options file not found (using defaults): {path}", file=sys.stderr)
+        return defaults
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return defaults
+        out = dict(defaults)
+        if "beam_size" in data:
+            try:
+                b = int(data["beam_size"])
+                if 1 <= b <= 10:
+                    out["beam_size"] = b
+            except (TypeError, ValueError):
+                pass
+        if "hotwords" in data and data["hotwords"] is not None:
+            out["hotwords"] = str(data["hotwords"]).strip()
+        if "initial_prompt" in data and data["initial_prompt"] is not None:
+            out["initial_prompt"] = str(data["initial_prompt"]).strip()
+        if "vad_filter" in data:
+            out["vad_filter"] = bool(data["vad_filter"])
+        if "vad_min_silence_ms" in data:
+            try:
+                ms = int(data["vad_min_silence_ms"])
+                if 100 <= ms <= 5000:
+                    out["vad_min_silence_ms"] = ms
+            except (TypeError, ValueError):
+                pass
+        if "condition_on_previous_text" in data:
+            out["condition_on_previous_text"] = bool(data["condition_on_previous_text"])
+        return out
+    except Exception as exc:
+        print(f"Failed to read options JSON (using defaults): {exc}", file=sys.stderr)
+        return defaults
+
+
 start_time = datetime.datetime.now()
 t_script0 = time.perf_counter()
 
@@ -33,12 +83,18 @@ args = sys.argv
 
 # 引数[1] はローカルモデルディレクトリ（HF キャッシュからコピーした CTranslate2 モデル）
 # 引数[2] は処理する音声ファイル（WAV）のパス
+# 引数[3] はオプション JSON（任意）
 if len(args) < 3:
-    print("Usage: Faster-Whisper.py <model_dir> <wav_path>", file=sys.stderr)
+    print(
+        "Usage: Faster-Whisper.py <model_dir> <wav_path> [options.json]",
+        file=sys.stderr,
+    )
     sys.exit(2)
 
 models_path = args[1]
 file_path = args[2]
+options_path = args[3] if len(args) >= 4 else None
+opts = load_options(options_path)
 
 if not os.path.isdir(models_path):
     print(f"Model directory not found: {models_path}", file=sys.stderr)
@@ -73,20 +129,49 @@ except OSError:
 with open(logfile_path, "a", encoding="utf-8-sig", newline="") as log:
     writer = csv.writer(log)
     writer.writerow(
-        [file_path, models_path, file_size, start_time, host, ip, device, compute_type]
+        [
+            file_path,
+            models_path,
+            file_size,
+            start_time,
+            host,
+            ip,
+            device,
+            compute_type,
+            opts.get("beam_size"),
+        ]
     )
 
 # vad_filter: 無音区間を落として幻覚・無駄計算を減らす（Silero VAD・fw 1.2.x）
 # language=ja 固定（日本語用途。自動検出のオーバーヘッド回避）
+# hotwords / initial_prompt: 固有名詞ヒント（辞書ではない・バイアス）
 ait_emit({"type": "phase", "phase": "transcribe_setup"})
 t_setup0 = time.perf_counter()
-segments_gen, info = model.transcribe(
-    file_path,
-    beam_size=5,
-    language="ja",
-    vad_filter=True,
-    vad_parameters=dict(min_silence_duration_ms=500),
+
+transcribe_kwargs = {
+    "beam_size": int(opts["beam_size"]),
+    "language": "ja",
+    "vad_filter": bool(opts["vad_filter"]),
+    "condition_on_previous_text": bool(opts["condition_on_previous_text"]),
+}
+if opts["vad_filter"]:
+    transcribe_kwargs["vad_parameters"] = dict(
+        min_silence_duration_ms=int(opts["vad_min_silence_ms"])
+    )
+if opts.get("hotwords"):
+    transcribe_kwargs["hotwords"] = opts["hotwords"]
+if opts.get("initial_prompt"):
+    transcribe_kwargs["initial_prompt"] = opts["initial_prompt"]
+
+print(
+    f"[options] beam_size={transcribe_kwargs['beam_size']} "
+    f"vad={transcribe_kwargs['vad_filter']} "
+    f"hotwords_len={len(opts.get('hotwords') or '')} "
+    f"prompt_len={len(opts.get('initial_prompt') or '')}",
+    flush=True,
 )
+
+segments_gen, info = model.transcribe(file_path, **transcribe_kwargs)
 t_setup_sec = time.perf_counter() - t_setup0
 
 duration = float(getattr(info, "duration", 0.0) or 0.0)
@@ -101,6 +186,7 @@ ait_emit(
         "duration_after_vad": round(duration_after_vad, 3),
         "t_setup_sec": round(t_setup_sec, 3),
         "t_load_sec": round(t_load_sec, 3),
+        "beam_size": int(opts["beam_size"]),
     }
 )
 
@@ -200,6 +286,7 @@ ait_emit(
         "segments": seg_count,
         "device": device,
         "compute_type": compute_type,
+        "beam_size": int(opts["beam_size"]),
     }
 )
 ait_emit({"type": "done"})

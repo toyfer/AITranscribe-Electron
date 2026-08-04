@@ -1,8 +1,11 @@
 const { spawn } = require("child_process");
 const fs = require("fs");
+const path = require("path");
+const os = require("os");
 const { app } = require("electron");
 const { createTempJob, safeDeleteFile } = require("../utils/fs-temp");
-const { getNow } = require("../utils/time");
+const { getNow, generateRandomString } = require("../utils/time");
+const { clampTranscribeOptions } = require("../../shared/transcribe-settings");
 
 /** Structured lines from Faster-Whisper.py (stdout). */
 const AIT_PREFIX = "__AIT__";
@@ -59,6 +62,27 @@ class TranscribeJob {
     const audioDurationSec = Number(modelArgs.audioDurationSec);
     const estimatedDurationSec = Number(modelArgs.estimatedDuration);
 
+    // Clamp UI settings → write temp JSON for Python (avoids CLI escaping issues)
+    const whisperOptions = clampTranscribeOptions(modelArgs.options || modelArgs);
+    const optionsPath = path.join(
+      os.tmpdir(),
+      `aitranscribe-opts-${generateRandomString(12)}.json`
+    );
+    try {
+      fs.writeFileSync(optionsPath, JSON.stringify(whisperOptions), "utf8");
+    } catch (err) {
+      this.sendProcessMessage(
+        `[${getNow()}:System]設定ファイルの書き込みに失敗しました: ${err.message}`
+      );
+      return;
+    }
+
+    this.sendCommandOutput(
+      `[${getNow()}:System]設定 beam=${whisperOptions.beam_size} ` +
+        `vad=${whisperOptions.vad_filter} ` +
+        `hotwords=${whisperOptions.hotwords ? whisperOptions.hotwords.length + "字" : "なし"}\n`
+    );
+
     this.#runFFmpeg({
       inputPath,
       modelArgs,
@@ -67,6 +91,8 @@ class TranscribeJob {
       pythonPath,
       scriptPath,
       modelPath,
+      optionsPath,
+      whisperOptions,
       audioDurationSec:
         Number.isFinite(audioDurationSec) && audioDurationSec > 0
           ? audioDurationSec
@@ -94,6 +120,15 @@ class TranscribeJob {
     }
   }
 
+  #cleanupJobTemps(ctx) {
+    const { job, optionsPath } = ctx;
+    if (job) {
+      safeDeleteFile(job.tempWAV);
+      safeDeleteFile(job.tempCSV);
+    }
+    safeDeleteFile(optionsPath);
+  }
+
   #runFFmpeg(ctx) {
     const { inputPath, job, ffmpegPath } = ctx;
 
@@ -105,8 +140,6 @@ class TranscribeJob {
       mode: "indeterminate",
     });
 
-    // 引数配列で渡す (shell 無し): 空白・日本語パス対応 / インジェクション回避
-    // -ar 16000 -ac 1: Faster-Whisper は 16kHz モノラル前提
     const ffmpegArgs = ["-y", "-i", inputPath, "-ar", "16000", "-ac", "1", job.tempWAV];
     devLog("[FFmpeg cmd]", ffmpegPath, ffmpegArgs.join(" "));
 
@@ -125,7 +158,7 @@ class TranscribeJob {
 
     child.on("error", (err) => {
       this.sendProcessMessage(`[${getNow()}:FFmpeg]起動に失敗しました: ${err.message}`);
-      safeDeleteFile(job.tempWAV);
+      this.#cleanupJobTemps(ctx);
     });
 
     child.on("close", (code) => {
@@ -135,7 +168,7 @@ class TranscribeJob {
         this.sendProcessMessage(
           `[${getNow()}:FFmpeg]エラーが発生しました\n errorcode:${code}`
         );
-        safeDeleteFile(job.tempWAV);
+        this.#cleanupJobTemps(ctx);
         return;
       }
       devLog(`[FFmpeg]child process exited with code ${code}`);
@@ -154,7 +187,7 @@ class TranscribeJob {
   }
 
   #runWhisper(ctx) {
-    const { job, pythonPath, scriptPath, modelPath } = ctx;
+    const { job, pythonPath, scriptPath, modelPath, optionsPath } = ctx;
 
     this.#emit({
       type: "phase",
@@ -164,10 +197,8 @@ class TranscribeJob {
       mode: "indeterminate",
     });
 
-    // 日本語パス対応: spawn() に引数配列を渡すとWindowsでも各引数が
-    // 個別の CreateProcess 引数として扱われるため、Python 側にそのまま
-    // Unicode パスが渡る。Python 3 が Unicode パスに対応していれば動作する。
     const pythonArgs = ["-u", scriptPath, modelPath, job.tempWAV];
+    if (optionsPath) pythonArgs.push(optionsPath);
     devLog("[Whisper cmd]", pythonPath, pythonArgs.join(" "));
 
     const tWhisperStart = Date.now();
@@ -178,13 +209,10 @@ class TranscribeJob {
         PYTHONIOENCODING: "utf-8",
         PYTHONUTF8: "1",
         PYTHONUNBUFFERED: "1",
-        // オフライン: ユーザーサイトやネット経由の追加取得を避ける
         PYTHONNOUSERSITE: "1",
       },
     });
 
-    // StringDecoder via setEncoding: avoid splitting multibyte UTF-8
-    // across data chunk boundaries (toString per Buffer is unsafe).
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (data) => {
       this.#onWhisperStdout(ctx, data);
@@ -197,8 +225,7 @@ class TranscribeJob {
 
     child.on("error", (err) => {
       this.sendProcessMessage(`[${getNow()}:Whisper]起動に失敗しました: ${err.message}`);
-      safeDeleteFile(job.tempWAV);
-      safeDeleteFile(job.tempCSV);
+      this.#cleanupJobTemps(ctx);
     });
 
     child.on("close", (code) => {
@@ -213,8 +240,7 @@ class TranscribeJob {
         this.sendProcessMessage(
           `[${getNow()}:Whisper]エラーが発生しました\n errorcode:${code}`
         );
-        safeDeleteFile(job.tempWAV);
-        safeDeleteFile(job.tempCSV);
+        this.#cleanupJobTemps(ctx);
         return;
       }
       devLog(`[Whisper]child process exited with code ${code}`);
@@ -222,6 +248,7 @@ class TranscribeJob {
         `[${getNow()}:Whisper]文字起こしが完了しました (${ctx.metrics.tWhisper.toFixed(2)}s)`
       );
       safeDeleteFile(job.tempWAV);
+      safeDeleteFile(optionsPath);
       this.#runAdjustment(ctx);
     });
   }
@@ -266,7 +293,6 @@ class TranscribeJob {
         infer: "推論中",
         write: "CSV 書き出し",
       };
-      // Map python phases into overall job % bands (ffmpeg used 0 to 2)
       let pct = 5;
       if (phase === "load") pct = 4;
       else if (phase === "transcribe_setup") pct = 8;
@@ -284,9 +310,6 @@ class TranscribeJob {
         duration_after_vad: evt.duration_after_vad,
       });
 
-      // M5: cache duration in a local var so the same value is used
-      // in both the existence check and the formatted output, and we
-      // do not re-evaluate Number() on the same value.
       if (evt.duration != null) {
         const dur = Number(evt.duration).toFixed(2);
         const afterVad =
@@ -305,7 +328,6 @@ class TranscribeJob {
     }
 
     if (evt.type === "progress") {
-      // Reserve 10 to 95 percent of the bar for inference audio progress
       const audioPct = Math.max(0, Math.min(100, Number(evt.pct) || 0));
       const jobPct = 10 + (audioPct / 100) * 85;
       this.#emit({
@@ -361,9 +383,7 @@ class TranscribeJob {
   }
 
   #runAdjustment(ctx) {
-    const { inputPath, job } = ctx;
-    // M3: use plain '-' instead of '[brackets]' for friendlier filenames.
-    // New form: input_YYYY-MM-DD_HH-MM-SS.csv
+    const { inputPath, job, optionsPath } = ctx;
     const outFile = `${inputPath}_${getNow(true)}.csv`;
 
     this.#emit({
@@ -376,11 +396,9 @@ class TranscribeJob {
     fs.copyFile(job.tempCSV, outFile, (err) => {
       ctx.metrics.tTotal = (Date.now() - ctx.metrics.t0) / 1000;
 
-      // Do not emit complete / success metrics when the output file was not saved.
       if (err) {
         this.sendProcessMessage(`[${getNow()}:System]${err}`);
-        safeDeleteFile(job.tempWAV);
-        safeDeleteFile(job.tempCSV);
+        this.#cleanupJobTemps(ctx);
         return;
       }
 
@@ -400,6 +418,9 @@ class TranscribeJob {
       if (ctx.modelArgs && ctx.modelArgs.modelId) {
         summaryBits.push(`model=${ctx.modelArgs.modelId}`);
       }
+      if (ctx.whisperOptions && ctx.whisperOptions.beam_size != null) {
+        summaryBits.push(`beam=${ctx.whisperOptions.beam_size}`);
+      }
 
       this.sendCommandOutput(
         `[${getNow()}:System][metrics] ${summaryBits.join(" ")}\n`
@@ -417,6 +438,7 @@ class TranscribeJob {
           audio_duration_sec: audioDur,
           rtf_total: rtfTotal,
           model_id: ctx.modelArgs && ctx.modelArgs.modelId,
+          beam_size: ctx.whisperOptions && ctx.whisperOptions.beam_size,
           python: ctx.metrics.python,
         },
       });
@@ -430,6 +452,7 @@ class TranscribeJob {
       );
       safeDeleteFile(job.tempWAV);
       safeDeleteFile(job.tempCSV);
+      safeDeleteFile(optionsPath);
     });
   }
 }
