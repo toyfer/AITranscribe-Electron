@@ -1,12 +1,9 @@
 /**
- * Renderer UI — UIController + MODEL_CATALOG.
+ * Renderer UI — UIController + MODEL_CATALOG + settings modal.
  * Talks only via window.electronAPI (preload). ProgressBar is in progressbar.js.
  *
- * Local CTranslate2 dirs under src/Whisper/models/<dir>/ — see docs/models.md.
- * Progress: measured events (process:Progress); mul is cold-start fallback only.
- *
- * v0.1.0-transcribe: transcription only. Summarize UI is deferred to a later
- * release (code remains under src/Summarize-Suppoter/ and main jobs).
+ * Settings (beam / hotwords / VAD) persist in localStorage.
+ * Model default remains turbo (accuracy). Beam default is 3 (8GB-friendly).
  */
 
 const MODEL_CATALOG = Object.freeze([
@@ -23,11 +20,72 @@ const MODEL_CATALOG = Object.freeze([
     label: "精度重視（推奨）",
     dir: "turbo",
     hf: "deepdml/faster-whisper-large-v3-turbo-ct2",
-    // CPU int8 では small より重いのが普通（旧 0.55 は過小になりやすい）
     estimatedDurationMul: 1.5,
     default: true,
   },
 ]);
+
+/** Keep in sync with src/shared/transcribe-settings.js DEFAULTS */
+const SETTINGS_STORAGE_KEY = "aitranscribe.settings.v1";
+const SETTINGS_DEFAULTS = Object.freeze({
+  beamSize: 3,
+  hotwords: "",
+  initialPrompt: "",
+  vadFilter: true,
+  vadMinSilenceMs: 500,
+  conditionOnPreviousText: true,
+});
+
+function loadSettingsFromStorage() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) return { ...SETTINGS_DEFAULTS };
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return { ...SETTINGS_DEFAULTS };
+    return normalizeSettings(parsed);
+  } catch (err) {
+    console.warn("[settings] load failed", err);
+    return { ...SETTINGS_DEFAULTS };
+  }
+}
+
+function saveSettingsToStorage(settings) {
+  const normalized = normalizeSettings(settings);
+  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(normalized));
+  return normalized;
+}
+
+function normalizeSettings(raw) {
+  const src = raw && typeof raw === "object" ? raw : {};
+  let beam = Number(src.beamSize);
+  if (!Number.isFinite(beam)) beam = SETTINGS_DEFAULTS.beamSize;
+  beam = Math.round(beam);
+  if (beam < 1) beam = 1;
+  if (beam > 10) beam = 10;
+  if (![1, 3, 5].includes(beam)) {
+    if (beam <= 2) beam = 1;
+    else if (beam <= 4) beam = 3;
+    else beam = 5;
+  }
+
+  let vadMs = Number(src.vadMinSilenceMs);
+  if (!Number.isFinite(vadMs)) vadMs = SETTINGS_DEFAULTS.vadMinSilenceMs;
+  vadMs = Math.round(vadMs);
+  if (vadMs < 100) vadMs = 100;
+  if (vadMs > 5000) vadMs = 5000;
+
+  return {
+    beamSize: beam,
+    hotwords: String(src.hotwords ?? "").slice(0, 2000),
+    initialPrompt: String(src.initialPrompt ?? "").slice(0, 2000),
+    vadFilter: typeof src.vadFilter === "boolean" ? src.vadFilter : SETTINGS_DEFAULTS.vadFilter,
+    vadMinSilenceMs: vadMs,
+    conditionOnPreviousText:
+      typeof src.conditionOnPreviousText === "boolean"
+        ? src.conditionOnPreviousText
+        : SETTINGS_DEFAULTS.conditionOnPreviousText,
+  };
+}
 
 class UIController {
   constructor() {
@@ -36,16 +94,25 @@ class UIController {
     this.filePathElement = document.getElementById("file-path");
     this.runFFmpegButton = document.getElementById("run-ffmpeg");
     this.logClearButton = document.getElementById("log-clear-button");
+    this.openSettingsButton = document.getElementById("open-settings-button");
 
     this.modelButtons = document.querySelectorAll('input[name="model"]');
+
+    this.settingsHotwords = document.getElementById("settings-hotwords");
+    this.settingsInitialPrompt = document.getElementById("settings-initial-prompt");
+    this.settingsVadFilter = document.getElementById("settings-vad-filter");
+    this.settingsVadMs = document.getElementById("settings-vad-ms");
+    this.settingsConditionPrev = document.getElementById("settings-condition-prev");
+    this.settingsSaveButton = document.getElementById("settings-save-button");
+    this.settingsResetButton = document.getElementById("settings-reset-button");
+    this.settingsModalEl = document.getElementById("settings-modal");
 
     this.audioFile = new Audio();
     this.audioDuration = 0;
     this.progressBar = new ProgressBar();
     this.jobBusy = false;
-
-    /** Full path kept internally; display shows filename only */
     this.fullFilePath = "";
+    this.settings = loadSettingsFromStorage();
 
     if (!window.electronAPI) {
       const msg =
@@ -60,6 +127,7 @@ class UIController {
     }
 
     this.#populateModelButtons();
+    this.#fillSettingsForm(this.settings);
     this.#bindEvents();
     this.#bindIpc();
   }
@@ -80,12 +148,46 @@ class UIController {
     return checked ? checked.value : MODEL_CATALOG.find((m) => m.default)?.id || "";
   }
 
-  /** Extract filename from a full path (Windows backslash + POSIX forward slash). */
   #basename(fullPath) {
     if (!fullPath) return "";
     const normalized = fullPath.replace(/\\/g, "/");
     const parts = normalized.split("/");
     return parts[parts.length - 1] || "";
+  }
+
+  #getSelectedBeamSize() {
+    const checked = document.querySelector('input[name="settings-beam"]:checked');
+    const n = checked ? Number(checked.value) : SETTINGS_DEFAULTS.beamSize;
+    return [1, 3, 5].includes(n) ? n : SETTINGS_DEFAULTS.beamSize;
+  }
+
+  #setBeamRadio(beamSize) {
+    const v = [1, 3, 5].includes(Number(beamSize)) ? String(beamSize) : "3";
+    const el = document.querySelector(`input[name="settings-beam"][value="${v}"]`);
+    if (el) el.checked = true;
+  }
+
+  #fillSettingsForm(settings) {
+    const s = normalizeSettings(settings);
+    if (this.settingsHotwords) this.settingsHotwords.value = s.hotwords;
+    if (this.settingsInitialPrompt) this.settingsInitialPrompt.value = s.initialPrompt;
+    this.#setBeamRadio(s.beamSize);
+    if (this.settingsVadFilter) this.settingsVadFilter.checked = s.vadFilter;
+    if (this.settingsVadMs) this.settingsVadMs.value = String(s.vadMinSilenceMs);
+    if (this.settingsConditionPrev) this.settingsConditionPrev.checked = s.conditionOnPreviousText;
+  }
+
+  #readSettingsForm() {
+    return normalizeSettings({
+      beamSize: this.#getSelectedBeamSize(),
+      hotwords: this.settingsHotwords ? this.settingsHotwords.value : "",
+      initialPrompt: this.settingsInitialPrompt ? this.settingsInitialPrompt.value : "",
+      vadFilter: this.settingsVadFilter ? this.settingsVadFilter.checked : true,
+      vadMinSilenceMs: this.settingsVadMs ? Number(this.settingsVadMs.value) : 500,
+      conditionOnPreviousText: this.settingsConditionPrev
+        ? this.settingsConditionPrev.checked
+        : true,
+    });
   }
 
   #bindEvents() {
@@ -98,6 +200,32 @@ class UIController {
     this.audioFile.addEventListener("loadedmetadata", () => {
       this.audioDuration = this.audioFile.duration;
     });
+
+    if (this.settingsModalEl) {
+      this.settingsModalEl.addEventListener("show.bs.modal", () => {
+        this.#fillSettingsForm(this.settings);
+      });
+    }
+
+    if (this.settingsSaveButton) {
+      this.settingsSaveButton.addEventListener("click", () => {
+        this.settings = saveSettingsToStorage(this.#readSettingsForm());
+        if (window.bootstrap && this.settingsModalEl) {
+          const modal = bootstrap.Modal.getInstance(this.settingsModalEl);
+          if (modal) modal.hide();
+        }
+        if (this.outputTextareaElement) {
+          this.outputTextareaElement.value +=
+            `[設定] 保存しました（beam=${this.settings.beamSize}）\n`;
+        }
+      });
+    }
+
+    if (this.settingsResetButton) {
+      this.settingsResetButton.addEventListener("click", () => {
+        this.#fillSettingsForm(SETTINGS_DEFAULTS);
+      });
+    }
   }
 
   #bindIpc() {
@@ -147,14 +275,15 @@ class UIController {
     this.runFFmpegButton.innerText = isBusy ? "処理中…" : "スタート";
     this.fileSelectButton.disabled = isBusy;
     this.modelButtons.forEach((btn) => (btn.disabled = isBusy));
+    if (this.openSettingsButton) this.openSettingsButton.disabled = isBusy;
   }
 
-  /** Map catalog id → IPC payload. Does not mutate audioDuration. */
   selectModelConfig(modelId, durationSec) {
     const entry = this.#findModel(modelId);
     if (!entry) return null;
 
     const dur = Number(durationSec) > 0 ? Number(durationSec) : 60;
+    const settings = normalizeSettings(this.settings);
 
     return {
       model: `Whisper\\models\\${entry.dir}`,
@@ -163,6 +292,14 @@ class UIController {
       audioDurationSec: dur,
       modelId: entry.id,
       hf: entry.hf,
+      options: {
+        beamSize: settings.beamSize,
+        hotwords: settings.hotwords,
+        initialPrompt: settings.initialPrompt,
+        vadFilter: settings.vadFilter,
+        vadMinSilenceMs: settings.vadMinSilenceMs,
+        conditionOnPreviousText: settings.conditionOnPreviousText,
+      },
     };
   }
 
@@ -171,6 +308,8 @@ class UIController {
       alert("音声ファイルを選択してください");
       return;
     }
+
+    this.settings = loadSettingsFromStorage();
 
     const selectModel = this.selectModelConfig(
       this.#getSelectedModelId(),
