@@ -27,6 +27,14 @@
             font-size: 13px;
             line-height: 1.5;
         }
+        #settings-hotwords {
+            min-height: 6rem;
+            resize: vertical;
+        }
+        #settings-initial-prompt {
+            min-height: 3.5rem;
+            resize: vertical;
+        }
     </style>
     <title>AI文字起こし</title>
 </head>
@@ -40,9 +48,12 @@
                     <h2 id="title-label" class="mb-0 fs-3">AI文字起こし</h2>
                 </div>
                 <div class="col-auto">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="open-settings-button"
+                        data-bs-toggle="modal" data-bs-target="#settings-modal" aria-label="文字起こしの設定を開く">設定</button>
+                </div>
+                <div class="col-auto">
                     <a class="btn btn-outline-secondary btn-sm" href="./Transcribe-Suppoter/Suppoter.html">文字起こしサポーターを起動</a>
                 </div>
-                <!-- 要約サポーター: v0.1.0-transcribe では非表示（コードは残置・後続リリースで再有効化） -->
             </div>
         </div>
     </header>
@@ -121,6 +132,103 @@
 
         </div>
     </main>
+
+    <!-- 設定モーダル: localStorage に保存。モデル選択はメインのまま -->
+    <div class="modal fade" id="settings-modal" tabindex="-1" aria-labelledby="settings-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="settings-modal-label">文字起こしの設定</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-3">
+                        この PC 向けの規定は「処理の丁寧さ = 標準 (3)」です。用語ヒントは固有名詞の読み違えを減らすための参考情報で、辞書登録ではありません。
+                    </p>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="settings-hotwords">用語ヒント</label>
+                        <textarea class="form-control" id="settings-hotwords" maxlength="2000"
+                            placeholder="例: 山田太郎&#10;次世代基盤&#10;〇〇株式会社&#10;（1行1語、またはスペース区切り）"
+                            aria-describedby="settings-hotwords-help"></textarea>
+                        <div id="settings-hotwords-help" class="form-text">
+                            人名・製品名・社名など。長いリストは前の方が優先されやすいです。空でも構いません。
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="settings-initial-prompt">文脈メモ（任意）</label>
+                        <textarea class="form-control" id="settings-initial-prompt" maxlength="2000"
+                            placeholder="例: これは社内の週次定例の録音です。"
+                            aria-describedby="settings-prompt-help"></textarea>
+                        <div id="settings-prompt-help" class="form-text">
+                            会議の種類など短い説明。空でも構いません。
+                        </div>
+                    </div>
+
+                    <fieldset class="mb-3">
+                        <legend class="form-label fw-semibold fs-6 mb-2">処理の丁寧さ</legend>
+                        <div class="btn-group w-100" role="group" aria-label="beam size">
+                            <input type="radio" class="btn-check" name="settings-beam" id="settings-beam-1" value="1" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="settings-beam-1">速い (1)</label>
+
+                            <input type="radio" class="btn-check" name="settings-beam" id="settings-beam-3" value="3" autocomplete="off" checked>
+                            <label class="btn btn-outline-primary" for="settings-beam-3">標準 (3)</label>
+
+                            <input type="radio" class="btn-check" name="settings-beam" id="settings-beam-5" value="5" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="settings-beam-5">丁寧 (5)</label>
+                        </div>
+                        <div class="form-text">数値が大きいほど時間がかかります。8GB メモリでは標準推奨です。</div>
+                    </fieldset>
+
+                    <div class="accordion" id="settings-advanced">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#settings-advanced-body" aria-expanded="false"
+                                    aria-controls="settings-advanced-body">
+                                    詳細設定
+                                </button>
+                            </h2>
+                            <div id="settings-advanced-body" class="accordion-collapse collapse"
+                                data-bs-parent="#settings-advanced">
+                                <div class="accordion-body">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                            id="settings-vad-filter" checked>
+                                        <label class="form-check-label" for="settings-vad-filter">
+                                            無音をスキップ（VAD）
+                                        </label>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label" for="settings-vad-ms">無音とみなす長さ (ミリ秒)</label>
+                                        <input type="number" class="form-control" id="settings-vad-ms"
+                                            min="100" max="5000" step="50" value="500">
+                                        <div class="form-text">100〜5000。規定 500。</div>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                            id="settings-condition-prev" checked>
+                                        <label class="form-check-label" for="settings-condition-prev">
+                                            前の文を引き継ぐ
+                                        </label>
+                                    </div>
+                                    <div class="form-text">オフにすると区間ごとの独立性が上がり、用語ヒントの効き方が変わることがあります。</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer flex-wrap gap-2">
+                    <button type="button" class="btn btn-outline-secondary me-auto" id="settings-reset-button">
+                        規定値に戻す
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    <button type="button" class="btn btn-primary" id="settings-save-button">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="./progressbar.js"></script>
     <script src="./renderer.js"></script>
