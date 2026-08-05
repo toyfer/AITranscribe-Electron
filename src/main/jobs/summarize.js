@@ -11,7 +11,7 @@ const INFERENCE_TIMEOUT_MS = 10 * 60 * 1000;
 // Qwen3.x emits reasoning blocks in either `<think>...</think>` or
 // `[Start thinking] ... [End thinking]` form depending on the GGUF
 // build and sampling flags. Strip both from the stream.
-const THINKING_BLOCK_RE = /\u003cthink\u003e[\s\S]*?\u003c\/think\u003e|\[Start thinking\][\s\S]*?(?:\[End thinking\]|$)/gi;
+const THINKING_BLOCK_RE = /<think>[\s\S]*?<\/think>|\[Start thinking\][\s\S]*?(?:\[End thinking\]|$)/gi;
 const BANNER_RE = /^[▄█\s]+|build\s+:|model\s+:|ftype\s+:|modalities\s+:|available commands:|\/exit|\/regen|\/clear|\/read|\/glob|Loading model/i;
 
 const stateMap = new WeakMap();
@@ -222,9 +222,11 @@ class SummarizeJob {
         return;
       }
 
+      const parsed = this.parseStructuredOutput(summaryText, type);
+
       this.emit({ type: "phase", phase: "save", label: "docx 書き出し中", pct: 95, mode: "indeterminate" });
       try {
-        await this.writeDocx({ outputPath, summaryText });
+        await this.writeDocx({ outputPath, summaryText, parsed });
       } catch (err) {
         this.sendProcessMessage(
           `[${this.ts()}:System]docx 書き出し失敗: ${err.message}`
@@ -245,6 +247,12 @@ class SummarizeJob {
     });
   }
 
+  /**
+   * Build the LLM prompt from CSV text and requested summary type.
+   * Each type now requests explicit ## section headers so the
+   * post-processing layer (parseStructuredOutput / writeDocx) can
+   * produce cleanly structured docx output.
+   */
   buildPrompt(csvText, type) {
     const lines = csvText.split(/\r?\n/).filter(Boolean);
     const rows = [];
@@ -258,23 +266,86 @@ class SummarizeJob {
 
     if (type === "minutes") {
       return (
-        "以下は会議の文字起こしです。日本語で議事録として整形してください。\n" +
-        "出力はMarkdownで、議題ごとに「- 結論」「- 次のアクション」を含めてください。\n" +
-        "発言者が特定できる場合は [発言者] 形式で示してください。\n\n" +
+        "以下は会議の文字起こしです。以下のセクション構造に従って日本語で議事録を作成してください。\n\n" +
+        "## 概要\n会議の目的と全体の結論を2-3文で\n\n" +
+        "## 決定事項\n- 決定内容（発言者: 名前）\n\n" +
+        "## アクションアイテム\n- タスク内容（担当: 名前）\n\n" +
+        "## 未解決事項\n- 議題と経緯\n\n" +
+        "上記4セクションを必ず含めてください。各項目は箇条書き（-）で記述してください。\n\n" +
         "----\n" + text + "\n----"
       );
     }
     if (type === "summary") {
       return (
-        "以下は文字起こしです。日本語で200字程度の要約を作成してください。\n\n" +
+        "以下は文字起こしです。日本語で200字程度の要約を「## 要約」のセクション見出し付きで作成してください。\n\n" +
         "----\n" + text + "\n----"
       );
     }
+    // bullets (default)
     return (
-      "以下は日本語の文字起こしです。要点を箇条書きで要約してください。\n" +
-      "各項目は見出し+1行程度の簡潔な説明にしてください。\n\n" +
+      "以下は日本語の文字起こしです。以下のセクション構造に従って要点をまとめてください。\n\n" +
+      "## 概要\n全体の要約を2-3文で\n\n" +
+      "## 主な議論\n- 見出し: 説明\n\n" +
+      "## アクションアイテム\n- タスク（担当: 名前）\n\n" +
+      "上記3セクションを必ず含めてください。\n\n" +
       "----\n" + text + "\n----"
     );
+  }
+
+  /**
+   * Parse the LLM output into structured sections by ## headers.
+   * Returns { summary, decisions, actionItems, openIssues, discussionPoints }.
+   * All fields are arrays of strings (bullet items) except summary which is
+   * a single string. Empty arrays mean the section was not found.
+   */
+  parseStructuredOutput(text, type) {
+    const result = {
+      summary: "",
+      decisions: [],
+      actionItems: [],
+      openIssues: [],
+      discussionPoints: []
+    };
+
+    // Match ## SectionName optionally followed by content until next ## or end
+    const sectionRegex = /##\s+(.+?)(?:\n([\s\S]*?))?(?=\n##\s+|\n*$)/g;
+    let match;
+    while ((match = sectionRegex.exec(text)) !== null) {
+      const title = match[1].trim();
+      const content = (match[2] || "").trim();
+
+      if (/概要|要約|サマリ/i.test(title)) {
+        // Strip any remaining bullets from summary text
+        result.summary = content.replace(/^[-*]\s+/gm, "").trim();
+      } else if (/決定事項|決定|決議/i.test(title)) {
+        result.decisions = this.parseBulletList(content);
+      } else if (/アクションアイテム|アクション|行動|todo|担当/i.test(title)) {
+        result.actionItems = this.parseBulletList(content);
+      } else if (/未解決|課題|issue|問題点/i.test(title)) {
+        result.openIssues = this.parseBulletList(content);
+      } else if (/議論|discussion|要点|ポイント/i.test(title)) {
+        result.discussionPoints = this.parseBulletList(content);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Extract bullet items from a section's content.
+   * Handles both `- ` and `* ` prefixes.
+   */
+  parseBulletList(content) {
+    const items = [];
+    const lines = content.split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+        const text = trimmed.replace(/^[-*]\s+/, "").trim();
+        if (text) items.push(text);
+      }
+    }
+    return items;
   }
 
   parseCsvLine(line) {
@@ -335,7 +406,13 @@ class SummarizeJob {
     }
   }
 
-  async writeDocx({ outputPath, summaryText }) {
+  /**
+   * Write the summary to a .docx file.
+   * If `parsed` contains structured data (decisions, actionItems, etc.),
+   * render them as proper docx sections with headings. Otherwise fall
+   * back to the original Markdown-to-docx conversion.
+   */
+  async writeDocx({ outputPath, summaryText, parsed }) {
     let docx;
     try {
       docx = require("docx");
@@ -348,6 +425,111 @@ class SummarizeJob {
     }
     const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docx;
 
+    // Check if structured data is available
+    const hasStructured = parsed &&
+      (parsed.summary ||
+       parsed.decisions.length > 0 ||
+       parsed.actionItems.length > 0 ||
+       parsed.openIssues.length > 0 ||
+       parsed.discussionPoints.length > 0);
+
+    if (hasStructured) {
+      const paragraphs = [];
+
+      // Title
+      paragraphs.push(new Paragraph({
+        children: [new TextRun({ text: "議事録", bold: true, size: 32 })],
+        spacing: { after: 400 }
+      }));
+
+      // 概要
+      if (parsed.summary) {
+        paragraphs.push(new Paragraph({
+          text: "概要",
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 300 }
+        }));
+        paragraphs.push(new Paragraph({
+          children: [new TextRun({ text: parsed.summary, size: 22 })],
+          spacing: { after: 300 }
+        }));
+      }
+
+      // 決定事項
+      if (parsed.decisions.length > 0) {
+        paragraphs.push(new Paragraph({
+          text: "決定事項",
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 300 }
+        }));
+        for (const d of parsed.decisions) {
+          paragraphs.push(new Paragraph({
+            text: d,
+            bullet: { level: 0 },
+            spacing: { after: 80 }
+          }));
+        }
+      }
+
+      // アクションアイテム
+      if (parsed.actionItems.length > 0) {
+        paragraphs.push(new Paragraph({
+          text: "アクションアイテム",
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 300 }
+        }));
+        for (const a of parsed.actionItems) {
+          paragraphs.push(new Paragraph({
+            text: a,
+            bullet: { level: 0 },
+            spacing: { after: 80 }
+          }));
+        }
+      }
+
+      // 未解決事項
+      if (parsed.openIssues.length > 0) {
+        paragraphs.push(new Paragraph({
+          text: "未解決事項",
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 300 }
+        }));
+        for (const o of parsed.openIssues) {
+          paragraphs.push(new Paragraph({
+            text: o,
+            bullet: { level: 0 },
+            spacing: { after: 80 }
+          }));
+        }
+      }
+
+      // 主な議論 (bullets type)
+      if (parsed.discussionPoints.length > 0) {
+        paragraphs.push(new Paragraph({
+          text: "主な議論",
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 300 }
+        }));
+        for (const p of parsed.discussionPoints) {
+          paragraphs.push(new Paragraph({
+            text: p,
+            bullet: { level: 0 },
+            spacing: { after: 80 }
+          }));
+        }
+      }
+
+      const doc = new Document({
+        creator: "AITranscribe-Electron",
+        title: "議事録",
+        sections: [{ children: paragraphs }],
+      });
+      const buffer = await Packer.toBuffer(doc);
+      fs.writeFileSync(outputPath, buffer);
+      return;
+    }
+
+    // Fallback: original Markdown-to-docx conversion
     const lines = summaryText.split(/\r?\n/);
     const paragraphs = [];
 
